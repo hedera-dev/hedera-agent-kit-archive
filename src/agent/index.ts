@@ -1,4 +1,4 @@
-import { Client, TokenId, AccountId, PendingAirdropId, TopicId, TokenType } from "@hashgraph/sdk";
+import { Client, TokenId, AccountId, PendingAirdropId, TopicId, TokenType, ContractId } from "@hashgraph/sdk";
 import {
   create_token,
   transfer_token,
@@ -48,6 +48,14 @@ import {
   MintNFTResult
 } from "../types";
 import { AirdropRecipient } from "../tools/hts/transactions/airdrop";
+import {
+  get_pools,
+  get_user_positions,
+  get_swap_quote,
+  swap_exact_tokens,
+  add_liquidity,
+  remove_liquidity
+} from "../tools/saucerswap";
 
 
 export default class HederaAgentKit {
@@ -252,5 +260,37 @@ export default class HederaAgentKit {
       tokenId?: TokenId,
   ): Promise<AssetAllowanceResult> {
     return approve_asset_allowance(spenderAccount, tokenId, amount, this.client);
+  }
+
+  // SaucerSwap Methods
+  async getSaucerSwapPools(networkType: 'mainnet' | 'testnet' = 'mainnet') {
+    return get_pools(networkType);
+  }
+
+  async getSaucerSwapPositions(accountId: string, networkType: 'mainnet' | 'testnet' = 'mainnet') {
+    return get_user_positions(accountId, networkType);
+  }
+
+  async getSwapQuote(
+    provider: ethers.JsonRpcProvider,
+    quoterContractId: ContractId,
+    quoterAbi: any,
+    path: string[],
+    amount: string,
+    isExactInput: boolean = true
+  ) {
+    return get_swap_quote(provider, quoterContractId, quoterAbi, path, amount, isExactInput);
+  }
+
+  async swapExactTokens(params: SwapExactTokensParams) {
+    return swap_exact_tokens(params);
+  }
+
+  async addLiquidity(params: AddLiquidityParams) {
+    return add_liquidity(params);
+  }
+
+  async removeLiquidity(params: RemoveLiquidityParams) {
+    return remove_liquidity(params);
   }
 }
