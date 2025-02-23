@@ -1,3 +1,5 @@
+import { Client, ContractId } from "@hashgraph/sdk";
+
 export interface ApiToken {
     decimals: number;
     icon?: string;
@@ -50,4 +52,64 @@ export interface ApiNftPositionV2 {
 export interface QuoteResult {
     amountIn?: string;
     amountOut?: string;
+}
+
+export interface SwapExactTokensParams {
+    client: Client;
+    routerContractId: ContractId;
+    routerAbi: any;
+    path: string[];
+    amountIn: string;
+    amountOutMin: string;
+    recipient: string;
+    deadline: number;
+    hbarAmount?: string;
+    unwrapWHBAR?: boolean;
+}
+
+export interface SwapResult {
+    status: string;
+    txHash: string;
+    amountIn: string;
+    amountOut: string;
+}
+
+export interface AddLiquidityParams {
+    client: Client;
+    nftManagerContractId: ContractId;
+    nftManagerAbi: any;
+    token0: string;
+    token1: string;
+    fee: number;
+    tickLower: number;
+    tickUpper: number;
+    amount0Desired: string;
+    amount1Desired: string;
+    amount0Min: string;
+    amount1Min: string;
+    recipient: string;
+    deadline: number;
+    hbarAmount?: string;
+}
+
+export interface RemoveLiquidityParams {
+    client: Client;
+    nftManagerContractId: ContractId;
+    nftManagerAbi: any;
+    tokenSN: number;
+    liquidity: string;
+    amount0Min: string;
+    amount1Min: string;
+    deadline: number;
+    recipient: string;
+    unwrapWHBAR?: boolean;
+}
+
+export interface LiquidityResult {
+    status: string;
+    txHash: string;
+    tokenId: string;
+    liquidity: string;
+    amount0: string;
+    amount1: string;
 } 
