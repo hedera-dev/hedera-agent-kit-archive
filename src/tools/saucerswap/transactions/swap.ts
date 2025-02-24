@@ -2,6 +2,7 @@ import { ContractExecuteTransaction, ContractId, Hbar, HbarUnit } from "@hashgra
 import { ethers } from "ethers";
 import { hexToUint8Array } from "../../../utils/conversion";
 import { SwapExactTokensParams, SwapResult } from "../../../types";
+import BigNumber from "bignumber.js";
 
 export const swap_exact_tokens = async (
     params: SwapExactTokensParams
@@ -50,7 +51,7 @@ export const swap_exact_tokens = async (
         .setGas(1000000);
 
     if (hbarAmount) {
-        tx.setPayableAmount(Hbar.from(hbarAmount, HbarUnit.Tinybar));
+        tx.setPayableAmount(Hbar.fromTinybars(BigNumber(hbarAmount, 0)));
     }
 
     tx.setFunctionParameters(encodedDataAsUint8Array);

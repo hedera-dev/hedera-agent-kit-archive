@@ -2,6 +2,7 @@ import { ContractExecuteTransaction, ContractId, Hbar, HbarUnit } from "@hashgra
 import { ethers } from "ethers";
 import { hexToUint8Array } from "../../../utils/conversion";
 import { AddLiquidityParams, RemoveLiquidityParams, LiquidityResult } from "../../../types";
+import BigNumber from "bignumber.js";
 
 export const add_liquidity = async (
     params: AddLiquidityParams
@@ -54,7 +55,7 @@ export const add_liquidity = async (
         .setGas(900000);
 
     if (hbarAmount) {
-        tx.setPayableAmount(Hbar.from(hbarAmount, HbarUnit.Tinybar));
+        tx.setPayableAmount(Hbar.fromTinybars(BigNumber(hbarAmount)));
     }
 
     tx.setFunctionParameters(encodedDataAsUint8Array);

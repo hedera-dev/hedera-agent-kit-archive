@@ -18,4 +18,4 @@ export const get_user_positions = async (
         console.error("Failed to fetch user positions:", error);
         throw error;
     }
-} 
+}; 

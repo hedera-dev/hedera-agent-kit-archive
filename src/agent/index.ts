@@ -1,4 +1,5 @@
 import { Client, TokenId, AccountId, PendingAirdropId, TopicId, TokenType, ContractId } from "@hashgraph/sdk";
+import { ethers } from "ethers";
 import {
   create_token,
   transfer_token,
@@ -45,7 +46,15 @@ import {
   AssetAllowanceResult,
   CreateNFTOptions,
   CreateFTOptions,
-  MintNFTResult
+  MintNFTResult,
+  SwapExactTokensParams,
+  AddLiquidityParams,
+  RemoveLiquidityParams,
+  ApiLiquidityPoolV2,
+  ApiNftPositionV2,
+  QuoteResult,
+  SwapResult,
+  LiquidityResult
 } from "../types";
 import { AirdropRecipient } from "../tools/hts/transactions/airdrop";
 import {
@@ -55,6 +64,11 @@ import {
   swap_exact_tokens,
   add_liquidity,
   remove_liquidity
+} from "../tools/saucerswap";
+import {
+  SAUCERSWAP_CONTRACTS,
+  SAUCERSWAP_ABIS,
+  createSaucerSwapProvider
 } from "../tools/saucerswap";
 
 
@@ -263,34 +277,42 @@ export default class HederaAgentKit {
   }
 
   // SaucerSwap Methods
-  async getSaucerSwapPools(networkType: 'mainnet' | 'testnet' = 'mainnet') {
+  async getSaucerSwapPools(networkType: 'mainnet' | 'testnet' = 'mainnet'): Promise<ApiLiquidityPoolV2[]> {
     return get_pools(networkType);
   }
 
-  async getSaucerSwapPositions(accountId: string, networkType: 'mainnet' | 'testnet' = 'mainnet') {
+  async getSaucerSwapPositions(accountId: string, networkType: 'mainnet' | 'testnet' = 'mainnet'): Promise<ApiNftPositionV2[]> {
     return get_user_positions(accountId, networkType);
   }
 
   async getSwapQuote(
-    provider: ethers.JsonRpcProvider,
-    quoterContractId: ContractId,
-    quoterAbi: any,
+    jsonRpcUrl: string,
     path: string[],
     amount: string,
-    isExactInput: boolean = true
-  ) {
-    return get_swap_quote(provider, quoterContractId, quoterAbi, path, amount, isExactInput);
+    isExactInput: boolean = true,
+    networkType: 'mainnet' | 'testnet' = 'mainnet'
+  ): Promise<QuoteResult> {
+    const provider = createSaucerSwapProvider(jsonRpcUrl);
+    const quoterContractId = ContractId.fromString(SAUCERSWAP_CONTRACTS[networkType].quoter);
+    return get_swap_quote(
+      provider,
+      quoterContractId,
+      SAUCERSWAP_ABIS.quoter,
+      path,
+      amount,
+      isExactInput
+    );
   }
 
-  async swapExactTokens(params: SwapExactTokensParams) {
+  async swapExactTokens(params: SwapExactTokensParams): Promise<SwapResult> {
     return swap_exact_tokens(params);
   }
 
-  async addLiquidity(params: AddLiquidityParams) {
+  async addLiquidity(params: AddLiquidityParams): Promise<LiquidityResult> {
     return add_liquidity(params);
   }
 
-  async removeLiquidity(params: RemoveLiquidityParams) {
+  async removeLiquidity(params: RemoveLiquidityParams): Promise<LiquidityResult> {
     return remove_liquidity(params);
   }
 }

@@ -14,8 +14,10 @@ export const get_swap_quote = async (
     const abiInterfaces = new ethers.Interface(quoterAbi);
     const quoterEvmAddress = `0x${quoterContractId.toSolidityAddress()}`;
 
-    const encodedPathData = hexToUint8Array(path.join(''));
-    
+    // If exactOutput, reverse the path as per documentation
+    const pathToUse = isExactInput ? path : [...path].reverse();
+    const encodedPathData = hexToUint8Array(pathToUse.join(''));
+
     const functionName = isExactInput ? 'quoteExactInput' : 'quoteExactOutput';
     const data = abiInterfaces.encodeFunctionData(functionName, [
         encodedPathData,
@@ -30,7 +32,7 @@ export const get_swap_quote = async (
     const decoded = abiInterfaces.decodeFunctionResult(functionName, result);
     
     return {
-        amountIn: decoded.amountIn?.toString(),
-        amountOut: decoded.amountOut?.toString()
+        amountIn: isExactInput ? amount : decoded.amountIn.toString(),
+        amountOut: isExactInput ? decoded.amountOut.toString() : amount
     };
 } 
