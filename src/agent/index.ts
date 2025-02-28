@@ -4,6 +4,7 @@ import {
   transfer_token,
   airdrop_token,
   get_hbar_balance,
+  get_account_info,
   get_hts_balance,
   get_hts_token_details,
   get_all_tokens_balances,
@@ -93,6 +94,11 @@ export default class HederaAgentKit {
       amount,
       this.client
     )
+  }
+
+  async getAccountInfo(accountId?: string): Promise<string | AccountId> {
+    const targetAccountId = accountId || this.client.operatorAccountId;
+    return get_account_info(targetAccountId);
   }
 
   async getHbarBalance(accountId?: string): Promise<number> {
