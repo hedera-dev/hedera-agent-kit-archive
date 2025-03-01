@@ -151,6 +151,50 @@ amount: number, the amount of tokens to transfer e.g. 100
   }
 }
 
+export class HederaGetAccountInfo extends Tool {
+  name = 'hedera_get_account_info'
+
+  description = `Retreives info about the specified Hedera account.  
+If an account ID is provided, it returns the details of that account.  
+If no input is given (empty JSON '{}'), it returns the details of the connected account.  
+
+### **Inputs** (optional, input is a JSON string):  
+- **accountId** (*string*, optional): The Hedera account ID to get the details for for (e.g., "0.0.789012").  
+  - If omitted, the tool will return the details of the connected account.  
+
+### **Example Usage:**  
+1. **Get account details of a specific account:**  
+   '{ "accountId": "0.0.123456" }'  
+2. **Get account details of the connected account:**  
+   '{}'
+`
+
+
+constructor(private hederaKit: HederaAgentKit) {
+
+    super()
+  }
+
+  protected async _call(input: string): Promise<string> {
+    try {
+      const parsedInput = JSON.parse(input);
+
+      const accountId = await this.hederaKit.getAccountInfo(parsedInput?.accountId);
+
+      return JSON.stringify({
+        status: "success",
+        accountId: accountId,
+      });
+    } catch (error: any) {
+      return JSON.stringify({
+        status: "error",
+        message: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      });
+    }
+  }
+}
+
 export class HederaGetBalanceTool extends Tool {
   name = 'hedera_get_hbar_balance'
 
@@ -952,6 +996,7 @@ export function createHederaTools(hederaKit: HederaAgentKit): Tool[] {
   return [
     new HederaCreateFungibleTokenTool(hederaKit),
     new HederaTransferTokenTool(hederaKit),
+    new HederaGetAccountInfo(hederaKit),
     new HederaGetBalanceTool(hederaKit),
     new HederaAirdropTokenTool(hederaKit),
     new HederaCreateNonFungibleTokenTool(hederaKit),

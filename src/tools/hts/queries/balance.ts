@@ -8,6 +8,16 @@ import {
 import { get_hts_token_details } from "./details";
 import { toDisplayUnit } from "../../../utils/hts-format-utils";
 
+export const get_account_info = async (
+  accountId: string | AccountId | null
+): Promise<string | AccountId> => {
+if(!accountId){
+  throw new Error("accountId must be provided");
+}
+
+return accountId;
+};
+
 export const get_hbar_balance = async (
     client: Client,
     accountId: string | AccountId | null
