@@ -1,18 +1,28 @@
 {
   "name": "hedera-agent-kit",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "ts-node tests/index.ts",
     "test-vitest": "vitest run",
     "prepare": "npm run build",
-    "build": "tsc"
+    "compile": "tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json",
+    "clean": "rm -rf ./dist",
+    "build": "npm-run-all clean compile && node ./scripts/post-build.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
+    }
+  },
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
@@ -24,7 +34,8 @@
     "@langchain/langgraph": "^0.2.34",
     "@langchain/openai": "^0.3.16",
     "bignumber.js": "^9.1.2",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "npm-run-all": "^4.1.5"
   },
   "repository": {
     "type": "git",
