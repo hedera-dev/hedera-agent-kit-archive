@@ -2,7 +2,7 @@ import BigNumber from "bignumber.js";
 import { TokenId } from "@hashgraph/sdk";
 import { CreateTokenOptions } from "../tools/hts/transactions/create_token";
 
-export type HederaNetworkType = "mainnet" | "testnet" | "previewnet";
+export type HederaNetworkType = "mainnet" | "testnet" | "previewnet" | "localnode";
 
 export type TokenBalance = {
     account: string;

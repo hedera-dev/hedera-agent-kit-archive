@@ -1,14 +1,11 @@
 import { Tool } from "@langchain/core/tools";
 import HederaAgentKit from "../agent";
-import * as dotenv from "dotenv";
-import { HederaNetworkType } from "../types";
 import { AccountId, PendingAirdropId, TokenId, TopicId } from "@hashgraph/sdk";
 import { fromBaseToDisplayUnit } from "../utils/format-units";
 import { toBaseUnit } from "../utils/hts-format-utils";
 import {getHTSDecimals} from "../utils/hts-format-utils";
 import { convertStringToTimestamp } from "../utils/date-format-utils";
 
-dotenv.config();
 // Tool for creating fungible tokens
 export class HederaCreateFungibleTokenTool extends Tool {
   name = 'hedera_create_fungible_token'
@@ -157,7 +154,10 @@ amount: number, the amount of tokens to transfer e.g. 100 in base unit
         Number(amount.toString()) // given in base unit
       );
 
-      const decimals = getHTSDecimals(parsedInput.tokenId, process.env.HEDERA_NETWORK as HederaNetworkType);
+      const decimals = getHTSDecimals(
+        parsedInput.tokenId,
+        this.hederaKit.network
+      );
 
       return JSON.stringify({
         status: "success",
@@ -673,7 +673,7 @@ Example usage:
         message: "Airdrop claim successful",
         tokenId: parsedInput.tokenId,
         senderAccountId: parsedInput.senderAccountId,
-        receiverAccountId: AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!),
+        receiverAccountId: this.hederaKit.client.operatorAccountId,
         txHash: result.txHash
       });
     } catch (error: any) {
@@ -712,7 +712,7 @@ Example usage:
 
       const airdrop = await this.hederaKit.getPendingAirdrops(
         parsedInput.accountId,
-        process.env.HEDERA_NETWORK as HederaNetworkType
+        this.hederaKit.network
       );
 
       return JSON.stringify({
@@ -765,7 +765,7 @@ export class HederaGetAllTokenBalancesTool extends Tool {
 
       // returns both display and base unit balances
       const balances = await this.hederaKit.getAllTokensBalances(
-        process.env.HEDERA_NETWORK as HederaNetworkType,
+        this.hederaKit.network,
         parsedInput.accountId
       );
 
@@ -1013,7 +1013,7 @@ Example usage:
       const parsedInput = JSON.parse(input);
       const topicInfo = await this.hederaKit.getTopicInfo(
         TopicId.fromString(parsedInput.topicId),
-        process.env.HEDERA_NETWORK as "mainnet" | "testnet" | "previewnet" || "testnet"
+        this.hederaKit.network || "testnet"
       );
       return JSON.stringify({
         status: "success",
@@ -1073,9 +1073,13 @@ Example usage:
       console.log(`parsed input: ${JSON.stringify(parsedInput)}`);
       const messages = await this.hederaKit.getTopicMessages(
         TopicId.fromString(parsedInput.topicId),
-        process.env.HEDERA_NETWORK as "mainnet" | "testnet" | "previewnet" || "testnet",
-          parsedInput.lowerThreshold != null ? convertStringToTimestamp(parsedInput.lowerThreshold) : undefined,
-          parsedInput.upperThreshold != null ? convertStringToTimestamp(parsedInput.upperThreshold) : undefined
+        this.hederaKit.network || "testnet",
+        parsedInput.lowerThreshold != null
+          ? convertStringToTimestamp(parsedInput.lowerThreshold)
+          : undefined,
+        parsedInput.upperThreshold != null
+          ? convertStringToTimestamp(parsedInput.upperThreshold)
+          : undefined
       );
       return JSON.stringify({
         status: "success",
