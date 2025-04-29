@@ -23,6 +23,7 @@ export class AirdropTokenStrategy implements TransactionStrategy<AirdropResult> 
 
     build(): Transaction {
         const tx = new TokenAirdropTransaction();
+        tx.setTransactionValidDuration(180);
         for (const recipient of this.recipients) {
             // Deduct from sender
             tx.addTokenTransfer(this.tokenId, this.payerAccountId, -recipient.amount);

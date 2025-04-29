@@ -184,3 +184,13 @@ export enum AgentKitActionName {
     ASSET_ALLOWANCE_CUSTODIAL = 'assetAllowedCustodial',
     ASSET_ALLOWANCE_NON_CUSTODIAL = 'assetAllowedNonCustodial',
 }
+
+export type ExecutorAccountDetails = {
+    executorPublicKey?: string | undefined,
+    executorAccountId?: string | undefined,
+}
+
+export type TxExecutionResult = {
+    status: string;
+    txHash: string;
+}

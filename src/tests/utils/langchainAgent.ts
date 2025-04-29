@@ -1,8 +1,8 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { HumanMessage } from "@langchain/core/messages";
 import { initializeAgent } from "./utils";
 import { StateType } from "@langchain/langgraph";
+import { ExecutorAccountDetails } from "../../types";
 
 export class LangchainAgent {
   private constructor(
@@ -15,18 +15,14 @@ export class LangchainAgent {
     return new LangchainAgent(agent, config);
   }
 
-  async sendPrompt(prompt: { text: string }, isCustodial?: boolean): Promise<StateType<any>> {
-    const updatedConfig = isCustodial
-        ? { ...this.config, configurable: { ...this.config.configurable, isCustodial } }
-        : this.config;
+  async sendPrompt(prompt: { text: string }, isCustodial?: boolean, executorAccountDetails?: ExecutorAccountDetails): Promise<StateType<any>> {
+    console.log(`invoking agent`);
 
-    const response = await this.agent.invoke(
+    return await this.agent.invoke(
       {
         messages: [new HumanMessage(prompt.text)],
       },
-      updatedConfig
+      {...this.config, configurable: {...this.config.configurable, isCustodial, executorAccountDetails}}
     );
-
-    return response;
   }
 }

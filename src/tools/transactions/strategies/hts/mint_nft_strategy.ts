@@ -12,6 +12,7 @@ export class MintNftStrategy implements TransactionStrategy<MintNFTResult> {
         return new TokenMintTransaction()
             .setTokenId(this.tokenId)
             .addMetadata(this.tokenMetadata)
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): MintNFTResult {

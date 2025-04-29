@@ -1,6 +1,7 @@
 import { Tool, ToolRunnableConfig } from "@langchain/core/tools";
 import HederaAgentKit from "../../../agent";
 import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
+import { prepareExecutorAccountDetails } from "../../../utils/langchain-tools-utils";
 
 export class HederaDissociateTokenTool extends Tool {
     name = 'hedera_dissociate_token';
@@ -22,12 +23,18 @@ Example usage:
     protected override async _call(input: any, _runManager?: CallbackManagerForToolRun, config?: ToolRunnableConfig): Promise<string> {
         try {
             const isCustodial = config?.configurable?.isCustodial === true;
+            const executorAccountDetails = await prepareExecutorAccountDetails(
+              isCustodial,
+              config?.configurable?.executorAccountDetails,
+              this.hederaKit.network
+            );
+
             console.log(`hedera_dissociate_token tool has been called (${isCustodial ? 'custodial' : 'non-custodial'})`);
 
             const parsedInput = JSON.parse(input);
 
             return await this.hederaKit
-                .dissociateToken(parsedInput.tokenId, isCustodial)
+                .dissociateToken(parsedInput.tokenId, isCustodial, executorAccountDetails)
                 .then(response => response.getStringifiedResponse());
         } catch (error: any) {
             return JSON.stringify({

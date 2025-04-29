@@ -1,33 +1,46 @@
-import { Tool } from "@langchain/core/tools";
+import { Tool, ToolRunnableConfig, } from "@langchain/core/tools";
 import HederaAgentKit from "../../../agent";
 import { HederaNetworkType } from "../../../types";
+import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
+import { prepareExecutorAccountDetails } from "../../../utils/langchain-tools-utils";
 
 export class HederaGetPendingAirdropTool extends Tool {
     name = 'hedera_get_pending_airdrop'
 
     description = `Get the pending airdrops for the given account on Hedera
 Inputs ( input is a JSON string ):
-- accountId: string, the account ID to get the pending airdrop for e.g. 0.0.789012,
+- accountId (*string*, optional): the account ID to get the pending airdrop for e.g. 0.0.789012,
 Example usage:
 1. Get the pending airdrops for account 0.0.789012:
   '{
     "accountId": "0.0.789012"
   }'
+2. Get pending airdrops for the connected account:
+   '{}'
 `
 
     constructor(private hederaKit: HederaAgentKit) {
         super()
     }
 
-    protected async _call(input: string): Promise<string> {
+    protected override async _call(input: any, _runManager?: CallbackManagerForToolRun, config?: ToolRunnableConfig): Promise<string> {
         try {
-            console.log('hedera_get_pending_airdrop tool has been called');
+            const isCustodial = config?.configurable?.isCustodial === true;
+            const executorAccountDetails = await prepareExecutorAccountDetails(
+              isCustodial,
+              config?.configurable?.executorAccountDetails,
+              this.hederaKit.network
+            );
+
+            console.log(`hedera_get_pending_airdrop tool has been called (${isCustodial ? 'custodial' : 'non-custodial'})`);
 
             const parsedInput = JSON.parse(input);
 
             const airdrop = await this.hederaKit.getPendingAirdrops(
-                parsedInput.accountId,
-                process.env.HEDERA_NETWORK_TYPE as HederaNetworkType
+              process.env.HEDERA_NETWORK_TYPE as HederaNetworkType,
+              parsedInput.accountId,
+              isCustodial,
+              executorAccountDetails,
             );
 
             return JSON.stringify({

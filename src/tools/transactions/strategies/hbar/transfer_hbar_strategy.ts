@@ -19,7 +19,8 @@ export class TransferHbarStrategy implements TransactionStrategy<TransferHBARRes
     build(): Transaction {
         return new TransferTransaction()
             .addHbarTransfer(this.fromAccountId, new Hbar(-this.amount))
-            .addHbarTransfer(this.toAccountId, new Hbar(this.amount));
+            .addHbarTransfer(this.toAccountId, new Hbar(this.amount))
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): TransferHBARResult {

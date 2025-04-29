@@ -8,8 +8,10 @@ export class DeleteTopicStrategy implements TransactionStrategy<DeleteTopicResul
     ) {}
 
     build(): Transaction {
-        return new TopicDeleteTransaction()
-            .setTopicId(this.topicId)
+        const tx = new TopicDeleteTransaction()
+            .setTopicId(this.topicId);
+        tx.setTransactionValidDuration(180);
+        return tx;
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): DeleteTopicResult {

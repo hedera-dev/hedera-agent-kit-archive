@@ -19,6 +19,7 @@ export class AssociateTokenStrategy implements TransactionStrategy<AssociateToke
         return new TokenAssociateTransaction()
             .setAccountId(this.issuerAccountId)
             .setTokenIds([this.tokenId])
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): AssociateTokenResult {

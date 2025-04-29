@@ -1,6 +1,6 @@
 import { BaseTransactionBuilder } from "./base_transaction_builder";
 import { CreateTopicStrategy } from "../strategies";
-import { TopicId } from "@hashgraph/sdk";
+import { PublicKey, TopicId } from "@hashgraph/sdk";
 import { SubmitTopicMessageStrategy } from "../strategies";
 import { DeleteTopicStrategy } from "../strategies";
 import { CreateTopicResult, DeleteTopicResult, SubmitMessageResult } from "../../results";
@@ -8,7 +8,7 @@ import { CreateTopicResult, DeleteTopicResult, SubmitMessageResult } from "../..
 export class HcsTransactionBuilder {
     static createTopic(
         memo: string,
-        publicKey: any,
+        publicKey: PublicKey,
         isSubmitKey: boolean
     ): BaseTransactionBuilder<CreateTopicResult> {
         const strategy = new CreateTopicStrategy(memo, publicKey, isSubmitKey);

@@ -5,32 +5,33 @@ import {
   Client,
   Hbar,
   PrivateKey,
-  PublicKey,
   TokenId,
   TopicId,
 } from "@hashgraph/sdk";
 import { AccountData, hederaPrivateKeyFromString } from "./testnetUtils";
-
 import HederaAgentKit from "../../agent";
 import { CreateFTOptions, CreateNFTOptions, HederaNetworkType } from "../../types";
-import { AirdropRecipient } from "../../tools/transactions/strategies";
-import { AirdropResult, CreateTokenResult, CreateTopicResult, SubmitMessageResult } from "../../tools";
+import {
+  AirdropResult,
+  AssociateTokenResult,
+  CreateTokenResult,
+  CreateTopicResult,
+  SubmitMessageResult,
+  AirdropRecipient
+} from "../../tools";
 
 export class NetworkClientWrapper {
   private readonly accountId: AccountId;
   private readonly privateKey: PrivateKey;
-  private readonly publicKey: PublicKey;
   private readonly client: Client;
   private readonly agentKit: HederaAgentKit;
 
   constructor(
     accountIdString: string,
     privateKeyString: string,
-    publicKey: string,
     keyType: string,
     networkType: HederaNetworkType
   ) {
-    this.publicKey = PublicKey.fromString(publicKey);
     this.accountId = AccountId.fromString(accountIdString);
     this.privateKey = hederaPrivateKeyFromString({
       key: privateKeyString,
@@ -43,7 +44,6 @@ export class NetworkClientWrapper {
     this.agentKit = new HederaAgentKit(
       this.accountId.toString(),
       this.privateKey.toString(),
-      this.publicKey.toStringDer(),
       networkType
     );
   }
@@ -148,7 +148,7 @@ export class NetworkClientWrapper {
       networkType: string,
       accountId: string
   ): Promise<number> {
-    return this.agentKit.getHtsBalance(tokenId, networkType as HederaNetworkType, accountId);
+    return this.agentKit.getHtsBalance(tokenId, networkType as HederaNetworkType, accountId, true);
   }
 
   async submitTopicMessage(topicId: string, message: string): Promise<SubmitMessageResult> {
@@ -157,6 +157,19 @@ export class NetworkClientWrapper {
     return this.agentKit
       .submitTopicMessage(TopicId.fromString(topicId), message, isCustodial)
       .then(response => response.getRawResponse() as SubmitMessageResult);
+  }
+
+  /*
+  Associates token to the operator account.
+  @param tokenId - token id to associate
+  @returns AssociateTokenResult - response from the transaction
+   */
+  async associateToken(
+    tokenId: string,
+  ) : Promise<AssociateTokenResult> {
+    return this.agentKit
+      .associateToken(TokenId.fromString(tokenId), true)
+      .then(response => response.getRawResponse() as AssociateTokenResult);
   }
 
 }

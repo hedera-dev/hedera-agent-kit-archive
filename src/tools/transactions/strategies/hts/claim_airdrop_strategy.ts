@@ -14,6 +14,7 @@ export class ClaimAirdropStrategy implements TransactionStrategy<ClaimAirdropRes
     build(): Transaction {
         return new TokenClaimAirdropTransaction()
             .addPendingAirdropId(this.airdropId)
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): ClaimAirdropResult {

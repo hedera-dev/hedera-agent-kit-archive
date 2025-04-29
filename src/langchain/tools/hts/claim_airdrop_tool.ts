@@ -2,6 +2,7 @@ import { Tool, ToolRunnableConfig } from "@langchain/core/tools";
 import HederaAgentKit from "../../../agent";
 import { AccountId, PendingAirdropId, TokenId } from "@hashgraph/sdk";
 import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
+import { prepareExecutorAccountDetails } from "../../../utils/langchain-tools-utils";
 
 export class HederaClaimAirdropTool extends Tool {
     name = 'hedera_claim_airdrop';
@@ -25,17 +26,23 @@ Example usage:
     protected override async _call(input: any, _runManager?: CallbackManagerForToolRun, config?: ToolRunnableConfig): Promise<string> {
         try {
             const isCustodial = config?.configurable?.isCustodial === true;
+            const executorAccountDetails = await prepareExecutorAccountDetails(
+              isCustodial,
+              config?.configurable?.executorAccountDetails,
+              this.hederaKit.network
+            );
+
             console.log(`hedera_claim_airdrop tool has been called (${isCustodial ? 'custodial' : 'non-custodial'})`);
 
             const parsedInput = JSON.parse(input);
             const airdropId = new PendingAirdropId({
                 tokenId: TokenId.fromString(parsedInput.tokenId),
                 senderId: AccountId.fromString(parsedInput.senderAccountId),
-                receiverId: this.hederaKit.client.operatorAccountId!
+                receiverId: isCustodial ? this.hederaKit.client.operatorAccountId! : AccountId.fromString(executorAccountDetails?.executorAccountId!)
             });
 
             return await this.hederaKit
-                .claimAirdrop(airdropId, isCustodial)
+                .claimAirdrop(airdropId, isCustodial, executorAccountDetails)
                 .then(response => response.getStringifiedResponse());
         } catch (error: any) {
             return JSON.stringify({

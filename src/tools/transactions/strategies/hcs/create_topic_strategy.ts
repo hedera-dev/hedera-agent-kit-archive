@@ -1,18 +1,25 @@
-import { TopicCreateTransaction, Transaction, TransactionReceipt, TransactionResponse } from "@hashgraph/sdk";
+import {
+    PublicKey,
+    TopicCreateTransaction,
+    Transaction,
+    TransactionReceipt,
+    TransactionResponse
+} from "@hashgraph/sdk";
 import { TransactionStrategy } from "../base_strategy";
 import { CreateTopicResult } from "../../../results";
 
 export class CreateTopicStrategy implements TransactionStrategy<CreateTopicResult> {
     constructor(
         private memo: string,
-        private publicKey: any,
+        private publicKey: PublicKey,
         private isSubmitKey: boolean
     ) {}
 
     build(): Transaction {
         let tx = new TopicCreateTransaction()
             .setTopicMemo(this.memo)
-            .setAdminKey(this.publicKey);
+            .setAdminKey(this.publicKey)
+            .setTransactionValidDuration(180);
 
         if (this.isSubmitKey) {
             tx.setSubmitKey(this.publicKey);

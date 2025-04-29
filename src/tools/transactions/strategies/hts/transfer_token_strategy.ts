@@ -21,6 +21,7 @@ export class TransferTokenStrategy implements TransactionStrategy<TransferTokenR
         return new TransferTransaction()
             .addTokenTransfer(this.tokenId, this.issuerAccountId, -this.amount)
             .addTokenTransfer(this.tokenId, this.targetAccountId, this.amount)
+             .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): TransferTokenResult {

@@ -11,7 +11,8 @@ export class MintTokenStrategy implements TransactionStrategy<MintTokenResult> {
     build(): Transaction {
         return new TokenMintTransaction()
             .setTokenId(this.tokenId)
-            .setAmount(this.amount);
+            .setAmount(this.amount)
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): MintTokenResult {

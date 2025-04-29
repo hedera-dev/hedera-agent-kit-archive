@@ -8,7 +8,7 @@ Welcome to the **Hedera Agent Kit**! This project aims to provide a LangChain-co
 - **Lightweight**: Designed to get you started quickly with a minimal set of features.
 - **Community-Driven**: We encourage developers of all skill levels to contribute.
 
-## Current Features
+## Hedera Agent Kit Features
 
 1. **Native Hedera Token Service (HTS)**:
     - Create fungible tokens with minimal parameters (name, symbol, decimals, supply, etc.).
@@ -41,11 +41,12 @@ Welcome to the **Hedera Agent Kit**! This project aims to provide a LangChain-co
     - **Get Topic Info**: Retrieve information about a specific topic.
     - **Get Topic Messages**: Fetch messages from a specific topic.
 
-### Note
-The methods in the HederaAgentKit class are fully implemented and functional for interacting with the Hedera network (e.g., creating tokens, transferring assets, managing airdrops). However, Langchain tools for most of these methods and operations are not implemented by default.
-
 ### Details
 For further details check [HederaAgentKit Readme](./src/agent/README.md).
+
+## Langchain Tools
+This library implements langchain tools for most of HederaAgentKit functionalities. 
+Consider checking the [Langchain Readme](./src/langchain/README.md) for additional information.
 
 ## Getting Started
 
@@ -88,7 +89,7 @@ cd hedera-agent-kit
 npm install
 ```
 
-3. Configure environment variables (e.g., `OPENAI_API_KEY`, `HEDERA_ACCOUNT_ID`, `HEDERA_PRIVATE_KEY`) in a `.env` file.
+3. Configure environment variables in a `.env` file. See the `sample.env`.
 
 4. Test the kit:
 

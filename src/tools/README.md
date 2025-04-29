@@ -1,58 +1,171 @@
 # Hedera Agent Kit Tools
 
-## HBAR
-### `transfer_hbar(client, toAccountId, amount)`
+This directory contains underlying implementations for methods offered by the HederaAgentKit from src/agent/index.ts.
 
-This asynchronous function facilitates the transfer of HBAR from the operator account (associated with the provided Hedera `client`) to a specified recipient account.
+The implementation is divided into:
+
+- **Queries**: Actions that use the Hedera mirror node to retrieve data and do not require creating any transaction.
+- **Transactions**: Actions that perform transactions on the Hedera network:
+  - **Custodial**: Executed by the Hedera Agent Kit operator (the account passed to the instance of HederaAgentKit).
+  - **Non-custodial**: Generate only txBytes and do not require passing private key by the executor of the transaction.
+
+**Operator** is the account passed to the instance of HederaAgentKit.  
+**Executor** is the account requesting non-custodial action, that will later sign its bytes.
+
+# Transactions
+
+## HBAR
+### `HbarTransactionBuilder.transferHbar(fromAccountId, toAccountId, amount)`
+
+This static method creates a transaction builder for transferring HBAR from one account to another. The transaction can be executed in either custodial or non-custodial mode.
 
 ---
 
 #### Parameters
 
-- **client**: `Client`  
-  An instance of the Hedera SDK client that holds the operator account used for initiating the transfer.
+- **fromAccountId**: `string | AccountId`  
+  The source account from which HBAR will be transferred. This can be provided either as a string or as an `AccountId` object.
 
 - **toAccountId**: `string | AccountId`  
   The target account to which HBAR will be transferred. This can be provided either as a string or as an `AccountId` object.
 
 - **amount**: `string`  
-  The amount of HBAR to be transferred. This value is used to debit the operator’s account and credit the recipient’s account. 
+  The amount of HBAR to be transferred. This value is used to debit the source account and credit the target account.
 
 ---
 
 #### Returns
 
-- **Promise<TransferHBARResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed transfer.
+- **BaseTransactionBuilder<TransferHBARResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, fromAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HbarTransactionBuilder
+    .transferHbar(operatorAccountId, toAccountId, amount)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialTransferHbarResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed transfer.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HbarTransactionBuilder
+    .transferHbar(executorAccountId, toAccountId, amount)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialTransferHbarResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
 
 ---
 
 #### Behavior & Error Handling
 
-1. **Operator Account Check**:  
-   The function first retrieves the operator account ID from the client. If the operator account is not defined, it throws an error with the message `"Invalid operator accountId in client"`.
-
-2. **Transaction Construction**:  
-   It creates a `TransferTransaction` that:
-    - Debits the operator’s account by the specified amount.
+1. **Transaction Construction**:  
+   It creates a `TransferTransaction` using the `TransferHbarStrategy` that:
+    - Debits the source account by the specified amount.
     - Credits the target account by the same amount.
 
-3. **Transaction Execution & Receipt**:  
-   The transaction is executed on the network. The function then obtains the receipt and checks the transaction status.
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
 
-4. **Error on Failure**:  
-   If the transaction receipt’s status does not include `"SUCCESS"`, the function throws an error indicating the transfer has failed.
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
 
----
-
+----
 
 ## HCS - Hedera Consensus Service
 
-### `submit_topic_message(topicId, message, client)`
+### `HcsTransactionBuilder.createTopic(memo, publicKey, isSubmitKey)`
 
-This asynchronous function submits a message to a specified topic on the Hedera network using the provided client.
+This static method creates a transaction builder for creating a new topic on the Hedera Consensus Service.
+
+---
+
+#### Parameters
+
+- **memo**: `string`  
+  A descriptive memo or note for the topic.
+
+- **publicKey**: `PublicKey`  
+  The public key to be used as the admin key for the topic.
+
+- **isSubmitKey**: `boolean`  
+  A flag indicating whether to set the submit key for the topic. If `true`, the provided public key is used as the submit key.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<CreateTopicResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HcsTransactionBuilder
+    .createTopic(memo, client.operatorPublicKey, isSubmitKey)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialCreateTopicResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed topic creation.
+- **status**: `string` — The status of the transaction receipt.
+- **topicId**: `string` — The identifier of the newly created topic.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HcsTransactionBuilder
+    .createTopic(memo, executorPublicKey, isSubmitKey)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialCreateTopicResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TopicCreateTransaction` using the `CreateTopicStrategy` that:
+    - Sets the topic memo to the provided memo.
+    - Sets the admin key to the provided public key.
+    - Sets the submit key to the provided public key if isSubmitKey is true.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HcsTransactionBuilder.submitTopicMessage(topicId, message)`
+
+This static method creates a transaction builder for submitting a message to a specified topic on the Hedera Consensus Service.
 
 ---
 
@@ -64,79 +177,890 @@ This asynchronous function submits a message to a specified topic on the Hedera 
 - **message**: `string`  
   The content of the message to be submitted to the topic.
 
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction.
-
 ---
 
 #### Returns
 
-- **Promise<SubmitMessageResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed message submission. If unavailable, returns `'error'`.
+- **BaseTransactionBuilder<SubmitMessageResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
 
 ---
 
-#### Behavior
+#### Custodial Usage
 
-1. **Transaction Creation & Execution**:  
-   The function creates a new `TopicMessageSubmitTransaction` with the provided `topicId` and `message`, and executes it using the given `client`.
+```typescript
+const response = await HcsTransactionBuilder
+    .submitTopicMessage(topicId, message)
+    .signAndExecute(client);
+```
 
-2. **Receipt Query & Execution**:  
-   It retrieves a receipt query from the executed transaction via `tx.getReceiptQuery()` and executes the query to obtain the transaction receipt.
+Returns a `CustodialSubmitMessageResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed message submission.
+- **status**: `string` — The status of the transaction receipt.
 
-3. **Result Formation**:  
-   The function extracts the status from the receipt and the transaction ID (as `txHash`) from the receipt query, then returns these values encapsulated in an object.
+#### Non-custodial Usage
 
----
+```typescript
+const txBytes = await HcsTransactionBuilder
+    .submitTopicMessage(topicId, message)
+    .getTxBytesString(client, executorAccountId);
+```
 
-### `create_topic(memo, client, isSubmitKey)`
-
-This asynchronous function creates a new topic on the Hedera network using the provided memo and configuration, and returns details about the newly created topic.
-
----
-
-#### Parameters
-
-- **memo**: `string`  
-  A descriptive memo or note for the topic.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The client must have the operator's public key set, which is used as the admin key (and optionally the submit key).
-
-- **isSubmitKey**: `boolean`  
-  A flag indicating whether to set the submit key for the topic. If `true`, the operator's public key is used as the submit key.
-
----
-
-#### Returns
-
-- **Promise<CreateTopicResult>**  
-  A promise that resolves to an object containing:
-    - **txHash**: `string` — The transaction hash (transaction ID) of the topic creation transaction.
-    - **status**: `string` — The status of the transaction receipt.
-    - **topicId**: `string` — The identifier of the newly created topic.
+Returns a `NonCustodialSubmitMessageResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
 
 ---
 
 #### Behavior & Error Handling
 
 1. **Transaction Construction**:  
-   The function initializes a new `TopicCreateTransaction` and sets:
-    - The topic memo to the provided `memo`.
-    - The admin key to the operator's public key from the client.
-    - The submit key to the operator's public key if `isSubmitKey` is `true`.
+   It creates a `TopicMessageSubmitTransaction` using the `SubmitTopicMessageStrategy` that:
+    - Sets the topic ID to the provided topic ID.
+    - Sets the message to the provided message.
 
-2. **Transaction Execution & Receipt**:  
-   The transaction is executed on the network, and the function retrieves its receipt to determine the outcome.
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
 
-3. **Error Handling**:
-    - If the receipt's status does not indicate `"SUCCESS"`, the function throws an error with the message `"Topic creation transaction failed"`.
-    - If the receipt does not include a `topicId`, it throws an error with the message `"Unknown error occurred during topic creation."`
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
 
-4. **Result Formation**:  
-   On successful execution, the function returns an object containing the transaction hash, the status of the receipt, and the newly created topic's ID.
+---
+
+### `HcsTransactionBuilder.deleteTopic(topicId)`
+
+This static method creates a transaction builder for deleting a specified topic on the Hedera Consensus Service.
+
+---
+
+#### Parameters
+
+- **topicId**: `TopicId | string`  
+  The identifier of the topic to be deleted.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<DeleteTopicResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HcsTransactionBuilder
+    .deleteTopic(topicId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialDeleteTopicResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed topic deletion.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HcsTransactionBuilder
+    .deleteTopic(topicId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialDeleteTopicResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TopicDeleteTransaction` using the `DeleteTopicStrategy` that:
+    - Sets the topic ID to the provided topic ID.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+## HTS - Hedera Token Service
+
+### `HtsTransactionBuilder.airdropToken(tokenId, recipients, issuerAccountId)`
+
+This static method creates a transaction builder for airdropping tokens to multiple recipients.
+
+---
+
+#### Parameters
+
+- **tokenId**: `TokenId | string`  
+  The identifier of the token to be airdropped.
+
+- **recipients**: `AirdropRecipient[]`  
+  An array of recipient objects. Each object must include:
+    - **accountId**: `string | AccountId` — The recipient's account identifier.
+    - **amount**: `number` — The number of tokens to transfer to the recipient.
+
+- **issuerAccountId**: `string | AccountId`  
+  The account from which the tokens will be transferred. This can be provided either as a string or as an `AccountId` object.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<AirdropResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .airdropToken(tokenId, recipients, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialAirdropTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed airdrop.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .airdropToken(tokenId, recipients, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialAirdropTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TransferTransaction` using the `AirdropTokenStrategy` that:
+    - For each recipient, deducts the specified token amount from the issuer account.
+    - Credits the same amount to each recipient's account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.associateToken(tokenId, issuerAccountId)`
+
+This static method creates a transaction builder for associating a token with an account.
+
+---
+
+#### Parameters
+
+- **tokenId**: `string | TokenId`  
+  The identifier of the token to be associated.
+
+- **issuerAccountId**: `string | AccountId`  
+  The account to associate the token with. This can be provided either as a string or as an `AccountId` object.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<AirdropResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .associateToken(tokenId, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialAssociateTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed association.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .associateToken(tokenId, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialAssociateTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenAssociateTransaction` using the `AssociateTokenStrategy` that:
+    - Associates the specified token with the issuer account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.claimAirdrop(airdropId)`
+
+This static method creates a transaction builder for claiming a pending airdrop.
+
+---
+
+#### Parameters
+
+- **airdropId**: `PendingAirdropId`  
+  The identifier of the airdrop to claim.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<ClaimAirdropResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .claimAirdrop(airdropId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialClaimAirdropResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed claim.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .claimAirdrop(airdropId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialClaimAirdropResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `ClaimAirdropTransaction` using the `ClaimAirdropStrategy` that:
+    - Claims the specified airdrop.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.createToken(options, publicKey, issuerAccountId)`
+
+This static method creates a transaction builder for creating a new token.
+
+---
+
+#### Parameters
+
+- **options**: `CreateTokenOptions`  
+  The options for creating the token. This object should include:
+    - **name**: `string` — The name of the token.
+    - **symbol**: `string` — The symbol representing the token.
+    - **decimals**: `number` (optional) — The number of decimal places for the token. Default is `0`.
+    - **initialSupply**: `number` (optional) — The initial supply of tokens. Default is `0`.
+    - **isSupplyKey**: `boolean` (optional) — A flag indicating whether to set the supply key. Default is `false`.
+    - **tokenType**: `TokenType` — The type of token to create (fungible or non-fungible).
+    - **maxSupply**: `number` (optional) — The maximum supply of tokens for finite supply tokens.
+    - **isMetadataKey**: `boolean` (optional) — A flag indicating whether to set the metadata key. Default is `false`.
+    - **isAdminKey**: `boolean` (optional) — A flag indicating whether to set the admin key. Default is `false`.
+    - **tokenMetadata**: `Uint8Array` (optional) — Metadata for the token. This is only applicable for NFTs.
+    - **client**: `Client` — An instance of the Hedera SDK client used to execute the transaction.
+
+- **publicKey**: `PublicKey`  
+  The public key to be used for various token keys (admin, supply, etc.) based on the options.
+
+- **issuerAccountId**: `string | AccountId`  
+  The account ID of the token creator. This account will be the initial treasury for the token.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<CreateTokenResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .createToken(options, client.operatorPublicKey, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialCreateTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed token creation.
+- **status**: `string` — The status of the transaction receipt.
+- **tokenId**: `string` — The identifier of the newly created token.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .createToken(options, executorPublicKey, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialCreateTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenCreateTransaction` using the `CreateTokenStrategy` that:
+    - Sets the token name, symbol, and decimals.
+    - Sets the initial supply if provided.
+    - Sets the treasury account to the provided account ID.
+    - Sets various keys (admin, supply, metadata) based on the options.
+    - Sets the token type and supply type.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.dissociateToken(tokenId, issuerAccountId)`
+
+This static method creates a transaction builder for dissociating a token from an account.
+
+---
+
+#### Parameters
+
+- **tokenId**: `string | TokenId`  
+  The identifier of the token to be dissociated.
+
+- **issuerAccountId**: `string | AccountId`  
+  The account to dissociate the token from. This can be provided either as a string or as an `AccountId` object.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<DissociateTokenResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .dissociateToken(tokenId, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialDissociateTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed dissociation.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .dissociateToken(tokenId, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialDissociateTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenDissociateTransaction` using the `DissociateTokenStrategy` that:
+    - Dissociates the specified token from the issuer account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.mintNft(tokenId, tokenMetadata)`
+
+This static method creates a transaction builder for minting a non-fungible token (NFT).
+
+---
+
+#### Parameters
+
+- **tokenId**: `string | TokenId`  
+  The identifier of the token to mint.
+
+- **tokenMetadata**: `Uint8Array`  
+  The metadata for the NFT.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<MintNFTResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .mintNft(tokenId, tokenMetadata)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialMintNFTResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed NFT minting.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .mintNft(tokenId, tokenMetadata)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialMintNFTResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenMintTransaction` using the `MintNftStrategy` that:
+    - Sets the token ID to the provided token ID.
+    - Sets the metadata for the NFT.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.mintToken(tokenId, amount)`
+
+This static method creates a transaction builder for minting fungible tokens.
+
+---
+
+#### Parameters
+
+- **tokenId**: `string | TokenId`  
+  The identifier of the token to mint.
+
+- **amount**: `number`  
+  The amount of tokens to mint.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<MintTokenResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, accountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .mintToken(tokenId, amount)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialMintTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed token minting.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .mintToken(tokenId, amount)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialMintTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenMintTransaction` using the `MintTokenStrategy` that:
+    - Sets the token ID to the provided token ID.
+    - Sets the amount of tokens to mint.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.rejectToken(tokenId, issuerAccountId)`
+
+This static method creates a transaction builder for rejecting a token.
+
+---
+
+#### Parameters
+
+- **tokenId**: `TokenId`  
+  The identifier of the token to reject.
+
+- **issuerAccountId**: `AccountId`  
+  The account rejecting the token. This must be provided as an `AccountId` object.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<RejectTokenResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .rejectToken(tokenId, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialRejectTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed token rejection.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .rejectToken(tokenId, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialRejectTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TokenRevokeKycTransaction` using the `RejectTokenStrategy` that:
+    - Rejects the specified token for the issuer account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+### `HtsTransactionBuilder.transferToken(tokenId, amount, targetAccountId, issuerAccountId)`
+
+This static method creates a transaction builder for transferring tokens from one account to another.
+
+---
+
+#### Parameters
+
+- **tokenId**: `TokenId | string`  
+  The identifier of the token to transfer.
+
+- **amount**: `number`  
+  The amount of tokens to transfer.
+
+- **targetAccountId**: `AccountId | string`  
+  The account to which the tokens will be transferred. This can be provided either as a string or as an `AccountId` object.
+
+- **issuerAccountId**: `AccountId | string`  
+  The account from which the tokens will be transferred. This can be provided either as a string or as an `AccountId` object.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<TransferTokenResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await HtsTransactionBuilder
+    .transferToken(tokenId, amount, targetAccountId, operatorAccountId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialTransferTokenResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed token transfer.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await HtsTransactionBuilder
+    .transferToken(tokenId, amount, targetAccountId, executorAccountId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialTransferTokenResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates a `TransferTransaction` using the `TransferTokenStrategy` that:
+    - Deducts the specified token amount from the issuer account.
+    - Credits the same amount to the target account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+
+- ## Account
+
+### `AccountTransactionBuilder.approveAssetAllowance(spenderAccount, amount, issuerAccountId, tokenId?)`
+
+This static method creates a transaction builder for approving an allowance for a spender account to spend either HBAR or a specific token from the issuer account.
+
+---
+
+#### Parameters
+
+- **spenderAccount**: `string | AccountId`  
+  The account that will be granted the allowance to spend assets. This can be provided either as a string or as an `AccountId` object.
+
+- **amount**: `number`  
+  The amount of the allowance in base units.
+
+- **issuerAccountId**: `string | AccountId`  
+  The account granting the spending allowance. This can be provided either as a string or as an `AccountId` object.
+
+- **tokenId** (optional): `TokenId`  
+  The identifier of the token to be allowed for spending. If not provided, the allowance will be for HBAR.
+
+---
+
+#### Returns
+
+- **BaseTransactionBuilder<AssetAllowanceResult>**  
+  A transaction builder that can be used to:
+    - Execute the transaction in custodial mode using `signAndExecute(client)`
+    - Get transaction bytes for non-custodial execution using `getTxBytesString(client, issuerAccountId)`
+
+---
+
+#### Custodial Usage
+
+```typescript
+const response = await AccountTransactionBuilder
+    .approveAssetAllowance(spenderAccount, amount, operatorAccountId, tokenId)
+    .signAndExecute(client);
+```
+
+Returns a `CustodialAssetAllowanceResult` containing:
+- **txHash**: `string` — The transaction hash (transaction ID) of the executed allowance approval.
+- **status**: `string` — The status of the transaction receipt.
+
+#### Non-custodial Usage
+
+```typescript
+const txBytes = await AccountTransactionBuilder
+    .approveAssetAllowance(spenderAccount, amount, executorAccountId, tokenId)
+    .getTxBytesString(client, executorAccountId);
+```
+
+Returns a `NonCustodialAssetAllowanceResult` containing:
+- **txBytes**: `string` — The base64-encoded transaction bytes that can be signed and executed elsewhere.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Transaction Construction**:  
+   It creates an `AccountAllowanceApproveTransaction` using the `AssetAllowanceStrategy` that:
+    - Approves the specified amount of HBAR or token for the spender account.
+
+2. **For Custodial Execution**:
+    - The transaction is executed on the network using the provided client.
+    - The receipt is obtained and the status is checked.
+    - If the status does not include `"SUCCESS"`, an error is thrown.
+
+3. **For Non-custodial Execution**:
+    - The transaction is built and frozen with the client.
+    - The transaction bytes are returned as a base64-encoded string.
+    - No execution happens on the network.
+
+---
+
+# Queries
+
+## HBAR - native token operations
+
+### `get_hbar_balance(accountId, networkType)`
+
+This asynchronous function retrieves the HBAR balance of a given account using the Hedera SDK.
+
+---
+
+#### Parameters
+
+- **client**: `Client`  
+  An instance of the Hedera `Client`, configured for the appropriate network (e.g., testnet, mainnet).
+
+- **accountId**: `string | AccountId`
+  The identifier of the account for which to retrieve the HBAR balance. If null or undefined, an error is thrown.
+
+---
+
+#### Returns
+
+- **Promise<number>**  
+  A promise that resolves to the HBAR balance of the account as a number, represented in HBAR.
+
+---
+
+#### Behavior & Error Handling
+
+1. **Validation:**:
+    - Checks if accountId is provided.
+    - Throws an error if accountId is null or not supplied.
+
+2. **Query Construction & Execution**:
+    - Constructs an `AccountBalanceQuery` using the provided `accountId`.
+    - Executes the query using the provided `client`.
+
+3. **Result Formation**:
+    - Retrieves the balance in HBAR from the query result.
+
+---
+
+
+## HCS - Hedera Consensus Service
 
 ### `get_topic_info(topicId, networkType)`
 
@@ -227,735 +1151,253 @@ This asynchronous function retrieves messages for a given topic from the Hedera 
 
 ---
 
-### `delete_topic(topicId, client)`
-
-This asynchronous function deletes a specified Hedera Consensus Service (HCS) topic.
-
----
-
-#### Parameters
-
-- **topicId**: `TopicId`  
-  The identifier of the topic to be deleted.
-
-- **client**: `Client`  
-  The Hedera client instance used to execute the transaction.
-
----
-
-#### Returns
-
-- **Promise<DeleteTopicResult>**  
-  A promise that resolves to an object containing the transaction hash and status.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Creation & Execution**:
-    - Constructs a `TopicDeleteTransaction` and assigns the `topicId`.
-    - Freezes the transaction and submits it to the Hedera network.
-
-2. **Response Handling**:
-    - Retrieves the transaction receipt and checks its status.
-    - Throws an error if the transaction is not successful.
-    - Returns the transaction hash and status.
-
 
 ## HTS - Hedera Token Service
 
-### `airdrop_token(tokenId, recipients, client)`
-
-This asynchronous function performs a token airdrop by transferring tokens from the operator's account to multiple recipient accounts.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token to be airdropped.
-
-- **recipients**: `AirdropRecipient[]`  
-  An array of recipient objects. Each object must include:
-    - **accountId**: `string | AccountId` — The recipient's account identifier.
-    - **amount**: `number` — The number of tokens to transfer to the recipient.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The client's operator account is used as the source of tokens.
-
----
-
-#### Returns
-
-- **Promise<AirdropResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed airdrop.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Initializes a new `TokenAirdropTransaction`.
-    - Iterates over each recipient to:
-        - Deduct the specified token amount from the operator's account.
-        - Credit the same amount to the recipient's account.
-
-2. **Transaction Execution & Receipt**:
-    - Freezes and executes the transaction using the provided client.
-    - Retrieves the receipt and verifies if the status includes `"SUCCESS"`.
-
-3. **Error Handling**:
-    - If the transaction status does not indicate success, an error with the message `"Token Airdrop Transaction failed"` is thrown.
-
----
-
-### `associate_token(tokenId, client)`
-
-This asynchronous function associates a token with the operator's account, enabling the account to hold the specified token.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token to be associated.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The client's operator account is utilized for the association.
-
----
-
-#### Returns
-
-- **Promise<AssociateTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed association.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Creates a new `TokenAssociateTransaction`.
-    - Sets the account ID (from the operator account) and the token to be associated.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves its receipt.
-    - Validates that the receipt status indicates a successful association.
-
-3. **Error Handling**:
-    - Throws an error with the message `"Token Association failed"` if the status does not include `"SUCCESS"`.
-
----
-
-### `claim_airdrop(client, airdropId)`
-
-This asynchronous function claims a pending token airdrop for the operator's account.
-
----
-
-#### Parameters
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction.
-
-- **airdropId**: `PendingAirdropId`  
-  The identifier of the pending airdrop to be claimed.
-
----
-
-#### Returns
-
-- **Promise<ClaimAirdropResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed claim.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Initializes a new `TokenClaimAirdropTransaction`.
-    - Adds the provided `airdropId` to the transaction.
-    - Freezes the transaction with the client.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction, retrieves the receipt, and checks if the status indicates success.
-
-3. **Error Handling**:
-    - If the status does not include `"SUCCESS"`, an error with the message `"Token Airdrop Transaction failed"` is thrown.
-
----
-
-### `create_token(options: CreateTokenOptions)`
-
-This asynchronous function creates a new token on the Hedera network with the specified attributes, supporting both fungible and non-fungible tokens.
-
----
-
-#### Parameters
-- **options**: `CreateTokenOptions`  
-  The options for creating the token. This object should include:
-
-    - **name**: `string`  
-      The name of the token.
-
-    - **symbol**: `string`  
-      The symbol representing the token.
-
-    - **decimals**: `number` (optional)  
-      The number of decimal places for the token. Default is `0`.
-
-    - **initialSupply**: `number` (optional)  
-      The initial supply of tokens in the smallest unit (meaning: display_unit * 10^token_decimals). Default is `0`.
-
-    - **isSupplyKey**: `boolean` (optional)  
-      A flag indicating whether to set the supply key. If `true`, the operator's public key is set as the supply key. Default is `false`.
-  
-    - **tokenType**: `TokenType`  
-      Specifies the type of token to create. Available values are:
-        - `TokenType.FungibleCommon`: For Fungible Tokens (FT).
-        - `TokenType.NonFungibleUnique`: For Non-Fungible Tokens (NFT).
-
-    - **maxSupply**: `number` (optional)  
-      The maximum supply of tokens for finite supply tokens. Setting this to true also sets the `TokenSupplyType` to  `Finite`.
-
-    - **isMetadataKey**: `boolean` (optional)  
-      A flag indicating whether to set the metadata key. If `true`, the operator's public key is used as the metadata key. Default is `false`.
-
-    - **isAdminKey**: `boolean` (optional)  
-      A flag indicating whether to set the admin key. If `true`, the operator's public key is used as the admin key. Default is `false`.
-
-    - **tokenMetadata**: `Uint8Array` (optional)  
-      A byte array containing metadata for the token.
-
-    - **memo**: `string` (optional)  
-      A memo associated with the token.
-
-    - **client**: `Client`  
-      An instance of the Hedera SDK client used to execute the transaction. The client's operator account is used as the treasury account.
-
-
----
-
-#### Returns
-
-- **Promise<CreateTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the token creation.
-    - **tokenId**: `TokenId` — The identifier of the newly created token.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Constructs a `TokenCreateTransaction` with the token's name, symbol, decimals, initial supply, and treasury account ID.
-    - Optionally sets the supply key, admin key, metadata key, and token metadata based on the provided options.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves the receipt.
-    - Checks that a `tokenId` is returned in the receipt.
-
-3. **Error Handling**:
-    - Throws an error with the message `"Token Create Transaction failed"` if no `tokenId` is present in the receipt.
-
----
-
-### `dissociate_token(tokenId, client)`
-
-This asynchronous function dissociates a token from the operator's account, effectively removing the token from the account's holdings.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token to be dissociated.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The client's operator account is used for dissociation.
-
----
-
-#### Returns
-
-- **Promise<DissociateTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the executed dissociation.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Creates a new `TokenDissociateTransaction`.
-    - Sets the account ID (from the operator account) and specifies the token to be dissociated.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves its receipt.
-    - Checks if the receipt status indicates a successful dissociation.
-
-3. **Error Handling**:
-    - Throws an error with the message `"Token dissociation failed"` if the status does not include `"SUCCESS"`.
-
----
-
-### `mint_token(tokenId, amount, client)`
-
-This asynchronous function mints new tokens for a given token, increasing its total supply.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token for which new tokens will be minted.
-
-- **amount**: `number`  
-  The number of tokens to mint.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction.
-
----
-
-#### Returns
-
-- **Promise<MintTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the minting operation.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Initializes a new `TokenMintTransaction` and sets the token ID and amount to mint.
-    - Freezes the transaction with the client.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves the receipt.
-    - Validates that the receipt status indicates success.
-
-3. **Error Handling**:
-    - If the status does not include `"SUCCESS"`, an error with the message `"Token Minting Transaction failed"` is thrown.
-
----
-
-### `mint_nft(tokenId, tokenMetadata, client)`
-
-This asynchronous function mints a new NFT token.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The unique identifier of the NFT to be minted.
-
-- **tokenMetadata**: `Uint8Array<ArrayBufferLike>`  
-  A `Uint8Array` representing the metadata for the NFT (limited to **100 bytes**).
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction.
-
----
-
-#### Returns
-
-- **Promise<MintNFTResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the minting operation.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Initializes a new `TokenMintTransaction` and sets the `tokenId`.
-    - Adds the `tokenMetadata` to the transaction.
-    - Freezes the transaction with the client.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves the receipt.
-    - Validates that the receipt status indicates success.
-
-3. **Error Handling**:
-    - If the transaction status does not include `"SUCCESS"`, an error with the message `"NFT token Minting Transaction failed"` is thrown.
-
----
-
-### `reject_token(tokenId, client)`
-
-This asynchronous function rejects an incoming token transfer for the operator's account, effectively declining the token.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token to be rejected.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The operator's account is set as the owner for this rejection.
-
----
-
-#### Returns
-
-- **Promise<RejectTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the rejection.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Creates a new `TokenRejectTransaction`.
-    - Sets the owner ID (from the operator account) and adds the token to be rejected.
-    - Freezes the transaction with the client.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves its receipt.
-    - Checks if the receipt status indicates success.
-
-3. **Error Handling**:
-    - Throws an error with the message `"Token Rejection Transaction failed"` if the status does not include `"SUCCESS"`.
-
----
-
-### `transfer_token(tokenId, toAccountId, amount, client)`
-
-This asynchronous function transfers a specified amount of tokens from the operator's account to another account.
-
----
-
-#### Parameters
-
-- **tokenId**: `TokenId`  
-  The identifier of the token to be transferred.
-
-- **toAccountId**: `string | AccountId`  
-  The target account identifier that will receive the tokens.
-
-- **amount**: `number`  
-  The number of tokens to transfer. Given in the smallest unit.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the transaction. The client's operator account is used as the source account.
-
----
-
-#### Returns
-
-- **Promise<TransferTokenResult>**  
-  A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt.
-    - **txHash**: `string` — The transaction hash (transaction ID) of the token transfer.
-
----
-
-#### Behavior & Error Handling
-
-1. **Transaction Construction**:
-    - Creates a new `TransferTransaction`.
-    - Adds a token transfer that deducts the specified amount from the operator's account.
-    - Adds a token transfer that credits the specified amount to the target account.
-
-2. **Transaction Execution & Receipt**:
-    - Executes the transaction and retrieves its receipt.
-    - Validates that the receipt status indicates a successful transfer.
-
-3. **Error Handling**:
-    - Throws an error with the message `"Token Transfer Transaction failed"` if the status does not include `"SUCCESS"`.
-
-### `get_hbar_balance(client, accountId)`
-
-This asynchronous function retrieves the HBAR balance of a specified account using the provided Hedera client.
-
----
-
-#### Parameters
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client used to execute the balance query.
-
-- **accountId**: `string | AccountId | null`  
-  The account identifier whose HBAR balance is requested. This parameter must be provided.
-
----
-
-#### Returns
-
-- **Promise<number>**  
-  A promise that resolves to the HBAR balance (as a number) of the specified account.
-
----
-
-#### Behavior & Error Handling
-
-1. **Input Validation**:
-    - Throws an error with the message `"accountId must be provided"` if no accountId is supplied.
-
-2. **Query Execution**:
-    - Creates an `AccountBalanceQuery` using the provided accountId.
-    - Executes the query with the given client and returns the HBAR balance converted to a number.
-
----
-
-### `get_hts_balance(tokenId, networkType, accountId)`
-
-This asynchronous function fetches the balance of a specific HTS token for a given account from the Hedera mirror node API.
-
----
-
-#### Parameters
-
-- **tokenId**: `string`  
-  The identifier of the HTS token.
-
-- **networkType**: `HederaNetworkType`  
-  The network type (e.g., testnet, mainnet) used to construct the mirror node API URL.
-
-- **accountId**: `string`  
-  The account identifier for which the token balance is requested.
-
----
-
-#### Returns
-
-- **Promise<number>**  
-  A promise that resolves to the token balance in its base unit. Returns `0` if no balance is found.
-
----
-
-#### Behavior & Error Handling
-
-1. **URL Construction & Fetching**:
-    - Constructs the API URL with the provided `tokenId`, `networkType`, and `accountId`.
-    - Performs a GET request to fetch the token balance.
-
-2. **Response Handling**:
-    - If the response is not successful, throws an error with the HTTP status.
-    - Parses the JSON response and extracts the token balance from the first result.
-
-3. **Result Formation**:
-    - Returns the extracted balance or `0` if the balance is undefined.
-
----
-
-### `get_all_tokens_balances(networkType, accountId)`
-
-This asynchronous function retrieves detailed balances for all tokens held by a given account. It gathers token details (such as name, symbol, decimals) and converts balances into display units.
-
----
-
-#### Parameters
-
-- **networkType**: `HederaNetworkType`  
-  The network type (e.g., testnet, mainnet) used for constructing the mirror node API URL.
-
-- **accountId**: `string`  
-  The account identifier whose token balances are to be retrieved.
-
----
-
-#### Returns
-
-- **Promise<Array<DetailedTokenBalance>>**  
-  A promise that resolves to an array of detailed token balance objects. Each object contains:
-    - `balance`: The raw token balance.
-    - `tokenDecimals`: The token’s decimals.
-    - `tokenId`: The token identifier.
-    - `tokenName`: The name of the token.
-    - `tokenSymbol`: The token symbol.
-    - `balanceInDisplayUnit`: The balance formatted for display.
-
----
-
-#### Behavior & Error Handling
-
-1. **Data Fetching & Pagination**:
-    - Constructs the API URL to retrieve token balances for the specified account.
-    - Iterates through paginated responses, appending tokens from each page to an array.
-
-2. **Token Details Retrieval**:
-    - For each token, fetches additional details using `get_hts_token_details`.
-    - Converts the raw balance to a display unit using `toDisplayUnit`.
-
-3. **Error Handling**:
-    - Logs and re-throws errors if any API fetch or data processing step fails.
-
----
-
 ### `get_hts_token_details(tokenId, networkType)`
 
-This asynchronous function fetches detailed information about a specific HTS token from the Hedera mirror node API.
+This asynchronous function retrieves detailed information about a specific Hedera Token Service (HTS) token from the Hedera mirror node API.
 
 ---
 
 #### Parameters
 
-- **tokenId**: `string`  
-  The identifier of the HTS token.
+- **tokenId**: `TokenId`  
+  The identifier of the token for which to retrieve details.
 
 - **networkType**: `HederaNetworkType`  
-  The network type (e.g., testnet, mainnet) used to construct the API URL.
+  The Hedera network type (e.g., testnet, mainnet) used to construct the base URL for the mirror node API.
 
 ---
 
 #### Returns
 
 - **Promise<HtsTokenDetails>**  
-  A promise that resolves to an object containing detailed token information (such as name, symbol, and decimals).
+  A promise that resolves to an object containing detailed information about the token, including:
+    - **token_id**: `string` — The token's identifier.
+    - **name**: `string` — The token's name.
+    - **symbol**: `string` — The token's symbol.
+    - **decimals**: `number` — The number of decimal places for the token.
+    - **total_supply**: `string` — The total supply of the token.
+    - **treasury_account_id**: `string` — The account ID of the token's treasury.
+    - **custom_fees**: `object` — Information about custom fees associated with the token.
+    - **admin_key**: `object` — Information about the token's admin key.
+    - **supply_key**: `object` — Information about the token's supply key.
+    - **metadata_key**: `object` — Information about the token's metadata key.
+    - **type**: `string` — The token type (e.g., "FUNGIBLE_COMMON", "NON_FUNGIBLE_UNIQUE").
+    - **supply_type**: `string` — The supply type (e.g., "INFINITE", "FINITE").
+    - **max_supply**: `string` — The maximum supply for finite supply tokens.
+    - **initial_supply**: `string` — The initial supply of the token.
+    - **created_timestamp**: `string` — The timestamp when the token was created.
+    - **modified_timestamp**: `string` — The timestamp when the token was last modified.
+    - **deleted**: `boolean` — Whether the token has been deleted.
+    - **auto_renew_account_id**: `string` — The account ID for auto-renewal.
+    - **auto_renew_period**: `string` — The auto-renewal period.
+    - **expiry_timestamp**: `string` — The timestamp when the token will expire.
+    - **memo**: `string` — The token's memo.
+    - **pause_key**: `object` — Information about the token's pause key.
+    - **pause_status**: `string` — The token's pause status.
+    - **kyc_key**: `object` — Information about the token's KYC key.
+    - **freeze_key**: `object` — Information about the token's freeze key.
+    - **fee_schedule_key**: `object` — Information about the token's fee schedule key.
+    - **custom_fees**: `object` — Information about custom fees associated with the token.
 
 ---
 
 #### Behavior & Error Handling
 
-1. **URL Construction & Fetching**:
-    - Constructs the API URL using the provided `tokenId` and `networkType`.
-    - Fetches the token details from the mirror node API.
+1. **API URL Construction**:
+    - Constructs a base URL using `createBaseMirrorNodeApiUrl(networkType)`.
+    - Appends the token ID to form the full endpoint URL.
 
-2. **Response Handling**:
-    - If the response is not successful, throws an error with the HTTP status and message.
-    - Parses and returns the JSON response containing token details.
+2. **Fetching Data**:
+    - Performs a GET request to the constructed URL using the `fetch` API.
+    - Parses the JSON response into an `HtsTokenDetails` object.
+
+3. **Error Handling**:
+    - If the response does not contain valid data, it throws an error with the message `"Could not find or fetch token details"`.
+
+4. **Result Formation**:
+    - On successful fetch, it returns the parsed token details.
 
 ---
 
-### `get_token_holders(tokenId, networkType, threshold?)`
+### `get_hts_balance(accountId, tokenId, networkType)`
 
-This asynchronous function retrieves a list of token holders and their balances for a specified token. It supports optional filtering by a minimum balance threshold.
+This asynchronous function retrieves the balance of a specific token for a given account from the Hedera mirror node API.
 
 ---
 
 #### Parameters
 
-- **tokenId**: `string`  
-  The identifier of the token.
+- **accountId**: `AccountId`  
+  The identifier of the account for which to retrieve the token balance.
+
+- **tokenId**: `TokenId`  
+  The identifier of the token for which to retrieve the balance.
 
 - **networkType**: `HederaNetworkType`  
-  The network type (e.g., testnet, mainnet) used to construct the mirror node API URL.
-
-- **threshold** *(optional)*: `number`  
-  A minimum balance threshold. If provided, only accounts with balances greater than or equal to this threshold are returned. If omitted, only accounts with a balance greater than 0 are considered.
+  The Hedera network type (e.g., testnet, mainnet) used to construct the base URL for the mirror node API.
 
 ---
 
 #### Returns
 
-- **Promise<Array<TokenBalance>>**  
-  A promise that resolves to an array of token balance objects for each token holder.
-
----
-
-#### Behavior & Error Handling
-
-1. **URL Construction & Pagination**:
-    - Builds the API URL based on the provided `tokenId`, `networkType`, and optional `threshold`.
-    - Iterates through paginated responses, accumulating token balance data.
-
-2. **Response Handling**:
-    - Throws an error if the HTTP response is not successful.
-    - Returns the aggregated array of token balances.
-
----
-
-### `get_pending_airdrops(networkType, accountId)`
-
-This asynchronous function retrieves a list of pending airdrops for a specified Hedera account.
-
----
-
-#### Parameters
-
-- **networkType**: `HederaNetworkType`  
-  The network type (e.g., testnet, mainnet) used to construct the mirror node API URL.
-
-- **accountId**: `string`  
-  The Hedera account ID for which to retrieve pending airdrops.
-
----
-
-#### Returns
-
-- **Promise<Array<Airdrop>>**  
-  A promise that resolves to an array of pending airdrops associated with the given account.
-
----
-
-#### Behavior & Error Handling
-
-1. **URL Construction & Request**:
-    - Builds the API URL using the provided `networkType` and `accountId`.
-    - Sends a request to the Hedera mirror node API.
-
-2. **Response Handling**:
-    - Throws an error if the HTTP response is not successful.
-    - Parses the response and returns the list of pending airdrops.  
-
-
-## Account - Account management
-
-### `approve_asset_allowance(spenderAccount, tokenId, amount, client)`
-
-This asynchronous function approves a specified allowance for an account (spender) to either spend HBAR or a specific token, depending on whether a `tokenId` is provided. The function uses the provided Hedera `client` to execute the approval transaction.
-
----
-
-#### Parameters
-
-- **spenderAccount**: `AccountId`  
-  The account ID of the spender, which will be granted the allowance to transfer the specified amount.
-
-- **tokenId**: `TokenId | undefined`  
-  The ID of the token for which the allowance is being granted. If this parameter is `undefined`, the allowance is for HBAR.
-
-- **amount**: `number`  
-  The amount of the asset (either HBAR or the specified token) to be approved for spending by the `spenderAccount`.
-
-- **client**: `Client`  
-  An instance of the Hedera SDK client that holds the operator account used to authorize the allowance.
-
----
-
-#### Returns
-
-- **Promise<AssetAllowanceResult>**  
+- **Promise<TokenBalance>**  
   A promise that resolves to an object containing:
-    - **status**: `string` — The status of the transaction receipt (e.g., `"SUCCESS"`).
-    - **txHash**: `string` — The transaction hash (transaction ID) of the approval transaction.
+    - **balance**: `number` — The token balance of the account.
+    - **tokenId**: `string` — The identifier of the token.
 
 ---
 
 #### Behavior & Error Handling
 
-1. **Allowance Type Determination**:  
-   The function first checks whether a `tokenId` is provided:
-    - If `tokenId` is defined, it creates a token allowance approval for the specified token.
-    - If `tokenId` is `undefined`, it defaults to approving an HBAR allowance.
+1. **API URL Construction**:
+    - Constructs a base URL using `createBaseMirrorNodeApiUrl(networkType)`.
+    - Appends the account ID and token relationship endpoint to form the full URL.
 
-2. **Transaction Creation & Execution**:  
-   The appropriate `AccountAllowanceApproveTransaction` is constructed:
-    - For token allowance, the transaction approves the specified amount of the token to be spent by the spender.
-    - For HBAR allowance, the transaction approves the specified amount of HBAR to be spent by the spender.  
-      The transaction is then frozen and executed.
+2. **Fetching Data**:
+    - Performs a GET request to the constructed URL using the `fetch` API.
+    - Parses the JSON response to extract the token balance.
 
-3. **Receipt Retrieval & Status Check**:  
-   After executing the transaction, the function retrieves the transaction receipt and verifies its status to determine if the approval was successful.
+3. **Error Handling**:
+    - If the response does not contain valid data or the token is not found, it returns a balance of `0`.
 
-4. **Error Handling**:  
-   If the transaction receipt's status does not include `"SUCCESS"`, the function will throw an error, indicating that the approval has failed.
+4. **Result Formation**:
+    - On successful fetch, it returns an object containing the token balance and token ID.
+
+---
+
+### `get_all_tokens_balances(accountId, networkType)`
+
+This asynchronous function retrieves the balances of all tokens associated with a given account from the Hedera mirror node API.
+
+---
+
+#### Parameters
+
+- **accountId**: `AccountId`  
+  The identifier of the account for which to retrieve token balances.
+
+- **networkType**: `HederaNetworkType`  
+  The Hedera network type (e.g., testnet, mainnet) used to construct the base URL for the mirror node API.
+
+---
+
+#### Returns
+
+- **Promise<TokenBalance[]>**  
+  A promise that resolves to an array of objects, each containing:
+    - **balance**: `number` — The token balance of the account.
+    - **tokenId**: `string` — The identifier of the token.
+
+---
+
+#### Behavior & Error Handling
+
+1. **API URL Construction**:
+    - Constructs a base URL using `createBaseMirrorNodeApiUrl(networkType)`.
+    - Appends the account ID and token relationship endpoint to form the full URL.
+
+2. **Fetching Data**:
+    - Performs a GET request to the constructed URL using the `fetch` API.
+    - Parses the JSON response to extract the token balances.
+
+3. **Error Handling**:
+    - If the response does not contain valid data, it returns an empty array.
+
+4. **Result Formation**:
+    - On successful fetch, it returns an array of objects, each containing a token balance and token ID.
+
+---
+
+### `get_token_holders(tokenId, networkType)`
+
+This asynchronous function retrieves a list of accounts that hold a specific token from the Hedera mirror node API.
+
+---
+
+#### Parameters
+
+- **tokenId**: `TokenId`  
+  The identifier of the token for which to retrieve holders.
+
+- **networkType**: `HederaNetworkType`  
+  The Hedera network type (e.g., testnet, mainnet) used to construct the base URL for the mirror node API.
+
+---
+
+#### Returns
+
+- **Promise<TokenBalance[]>**  
+  A promise that resolves to an array of objects, each containing:
+    - **balance**: `number` — The token balance of the account.
+    - **tokenId**: `string` — The identifier of the token.
+    - **accountId**: `string` — The identifier of the account holding the token.
+
+---
+
+#### Behavior & Error Handling
+
+1. **API URL Construction**:
+    - Constructs a base URL using `createBaseMirrorNodeApiUrl(networkType)`.
+    - Appends the token ID and balances endpoint to form the full URL.
+
+2. **Fetching Data**:
+    - Performs a GET request to the constructed URL using the `fetch` API.
+    - Parses the JSON response to extract the token holders.
+
+3. **Error Handling**:
+    - If the response does not contain valid data, it returns an empty array.
+
+4. **Result Formation**:
+    - On successful fetch, it returns an array of objects, each containing a token balance, token ID, and account ID.
+
+---
+
+### `get_pending_airdrops(accountId, networkType)`
+
+This asynchronous function retrieves a list of pending airdrops for a given account from the Hedera mirror node API.
+
+---
+
+#### Parameters
+
+- **accountId**: `AccountId`  
+  The identifier of the account for which to retrieve pending airdrops.
+
+- **networkType**: `HederaNetworkType`  
+  The Hedera network type (e.g., testnet, mainnet) used to construct the base URL for the mirror node API.
+
+---
+
+#### Returns
+
+- **Promise<Airdrop[]>**  
+  A promise that resolves to an array of objects, each containing:
+    - **airdropId**: `string` — The identifier of the airdrop.
+    - **tokenId**: `string` — The identifier of the token being airdropped.
+    - **amount**: `number` — The amount of tokens being airdropped.
+    - **status**: `string` — The status of the airdrop.
+    - **createdAt**: `string` — The timestamp when the airdrop was created.
+    - **updatedAt**: `string` — The timestamp when the airdrop was last updated.
+
+---
+
+#### Behavior & Error Handling
+
+1. **API URL Construction**:
+    - Constructs a base URL using `createBaseMirrorNodeApiUrl(networkType)`.
+    - Appends the account ID and pending airdrops endpoint to form the full URL.
+
+2. **Fetching Data**:
+    - Performs a GET request to the constructed URL using the `fetch` API.
+    - Parses the JSON response to extract the pending airdrops.
+
+3. **Error Handling**:
+    - If the response does not contain valid data, it returns an empty array.
+
+4. **Result Formation**:
+    - On successful fetch, it returns an array of objects, each containing details about a pending airdrop.
 
 ---

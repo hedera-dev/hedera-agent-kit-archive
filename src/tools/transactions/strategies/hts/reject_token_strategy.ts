@@ -18,7 +18,8 @@ export class RejectTokenStrategy implements TransactionStrategy<RejectTokenResul
     build(): Transaction {
         return new TokenRejectTransaction()
             .setOwnerId(this.issuerAccountId)
-            .addTokenId(this.tokenId);
+            .addTokenId(this.tokenId)
+            .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): RejectTokenResult {

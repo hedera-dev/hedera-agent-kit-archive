@@ -6,23 +6,44 @@ import {
     TokenId,
     TokenType,
     TopicId,
-    PrivateKey
 } from "@hashgraph/sdk";
 import {
     Airdrop,
     CreateFTOptions,
     CreateNFTOptions,
+    ExecutorAccountDetails,
     HCSMessage,
     HederaNetworkType,
     HtsTokenDetails,
     TokenBalance,
     TopicInfoApiResponse,
 } from "../types";
-import { HcsTransactionBuilder } from "../tools/transactions/builders";
-import { HtsTransactionBuilder } from "../tools/transactions/builders";
-import { HbarTransactionBuilder } from "../tools/transactions/builders";
 import {
+    AccountTransactionBuilder,
+    AirdropRecipient,
+    AirdropResult,
+    AssetAllowanceResult,
+    AssociateTokenResult,
+    BaseResult,
+    ClaimAirdropResult,
+    CreateTokenResult,
+    CreateTopicResult,
+    CustodialAirdropTokenResult,
+    CustodialAssociateTokenResult,
+    CustodialAssetAllowanceResult,
+    CustodialClaimAirdropResult,
+    CustodialCreateTokenResult,
+    CustodialCreateTopicResult,
+    CustodialDeleteTopicResult,
     CustodialDissociateTokenResult,
+    CustodialMintNFTResult,
+    CustodialMintTokenResult,
+    CustodialRejectTokenResult,
+    CustodialSubmitMessageResult,
+    CustodialTransferHbarResult,
+    CustodialTransferTokenResult,
+    DeleteTopicResult,
+    DissociateTokenResult,
     get_all_tokens_balances,
     get_hbar_balance,
     get_hts_balance,
@@ -30,74 +51,34 @@ import {
     get_pending_airdrops,
     get_token_holders,
     get_topic_info,
-    get_topic_messages, NonCustodialDissociateTokenResult,
-} from "../tools";
-import { AccountTransactionBuilder } from "../tools/transactions/builders";
-import { AirdropRecipient } from "../tools/transactions/strategies";
-import {
-    CreateTopicResult,
-    CustodialCreateTopicResult,
-    NonCustodialCreateTopicResult
-} from "../tools";
-import { BaseResult} from "../tools";
-import {
-    CustodialSubmitMessageResult,
-    NonCustodialSubmitMessageResult,
-    SubmitMessageResult
-} from "../tools";
-import {
-    CustodialTransferHbarResult,
-    NonCustodialTransferHbarResult,
-    TransferHBARResult
-} from "../tools";
-import {
-    CreateTokenResult,
-    CustodialCreateTokenResult,
-    NonCustodialCreateTokenResult
-} from "../tools";
-import {
-    CustodialTransferTokenResult,
-    NonCustodialTransferTokenResult,
-    TransferTokenResult
-} from "../tools";
-import {
-    AssociateTokenResult,
-    CustodialAssociateTokenResult,
-    NonCustodialAssociateTokenResult
-} from "../tools";
-import {
-    AirdropResult,
-    CustodialAirdropTokenResult,
-    NonCustodialAirdropTokenResult
-} from "../tools";
-import { DissociateTokenResult } from "../tools";
-import {
-    CustodialRejectTokenResult,
-    NonCustodialRejectTokenResult,
-    RejectTokenResult
-} from "../tools";
-import {
-    CustodialMintTokenResult,
+    get_topic_messages,
+    HbarTransactionBuilder,
+    HcsTransactionBuilder,
+    HtsTransactionBuilder,
     MintTokenResult,
-    NonCustodialMintTokenResult
-} from "../tools";
-import { CustodialMintNFTResult, NonCustodialMintNFTResult } from "../tools";
-import { ClaimAirdropResult, CustodialClaimAirdropResult, NonCustodialClaimAirdropResult } from "../tools";
-import {
-    CustodialDeleteTopicResult,
-    DeleteTopicResult,
-    NonCustodialDeleteTopicResult
-} from "../tools";
-import {
-    AssetAllowanceResult,
-    CustodialAssetAllowanceResult,
-    NonCustodialAssetAllowanceResult
+    NonCustodialAirdropTokenResult,
+    NonCustodialAssociateTokenResult,
+    NonCustodialAssetAllowanceResult,
+    NonCustodialClaimAirdropResult,
+    NonCustodialCreateTokenResult,
+    NonCustodialCreateTopicResult,
+    NonCustodialDeleteTopicResult,
+    NonCustodialDissociateTokenResult,
+    NonCustodialMintNFTResult,
+    NonCustodialMintTokenResult,
+    NonCustodialRejectTokenResult,
+    NonCustodialSubmitMessageResult,
+    NonCustodialTransferHbarResult,
+    NonCustodialTransferTokenResult,
+    RejectTokenResult,
+    SubmitMessageResult,
+    TransferHBARResult,
+    TransferTokenResult,
 } from "../tools";
 
 export class HederaAgentKit {
     public client: Client
     readonly network: 'mainnet' | 'testnet' | 'previewnet' = 'mainnet'
-    readonly publicKey: PublicKey | undefined;
     private readonly privateKey: string | undefined;
     readonly accountId: string;
     private readonly isCustodial: boolean;
@@ -105,7 +86,6 @@ export class HederaAgentKit {
     constructor(
         accountId: string,
         privateKey?: string,
-        publicKey?: string | undefined,
         network: 'mainnet' | 'testnet' | 'previewnet' = 'mainnet',
     ) {
         if(privateKey){
@@ -116,12 +96,8 @@ export class HederaAgentKit {
         } else {
             // @ts-ignore
             this.client = Client.forNetwork(network);
-            if(!publicKey) {
-                throw new Error("Public key is missing. To perform non custodial action you should pass public key!");
-            }
             this.isCustodial = false;
         }
-        this.publicKey = PublicKey.fromString(publicKey!);
         this.network = network;
         this.accountId = accountId;
     }
@@ -134,6 +110,7 @@ export class HederaAgentKit {
         topicMemo: string,
         isSubmitKey: boolean,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<CreateTopicResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -144,7 +121,7 @@ export class HederaAgentKit {
             return this.createTopicCustodial(topicMemo, isSubmitKey);
         }
 
-        return this.createTopicNonCustodial(topicMemo, isSubmitKey);
+        return this.createTopicNonCustodial(topicMemo, isSubmitKey, executorAccountDetails?.executorPublicKey, executorAccountDetails?.executorAccountId);
     }
 
     private async createTopicCustodial(
@@ -154,7 +131,7 @@ export class HederaAgentKit {
         if(!this.privateKey) throw new Error("Custodial actions require privateKey!");
 
         const response: CreateTopicResult =  await HcsTransactionBuilder
-            .createTopic(topicMemo, this.client.operatorPublicKey, isSubmitKey)
+            .createTopic(topicMemo, this.client.operatorPublicKey!, isSubmitKey)
             .signAndExecute(this.client);
 
         return new CustodialCreateTopicResult(response.topicId, response.txHash, response.status)
@@ -163,10 +140,16 @@ export class HederaAgentKit {
     private async createTopicNonCustodial(
         topicMemo: string,
         isSubmitKey: boolean,
+        executorPublicKey?: string | undefined,
+        executorAccountId?: string | undefined,
     ) : Promise<NonCustodialCreateTopicResult> {
+        if(executorPublicKey === undefined) throw new Error("Executor public key is missing in non custodial action call!");
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
+        console.log("Executor public key: " + executorPublicKey);
         const txBytes =  await HcsTransactionBuilder
-            .createTopic(topicMemo, this.client.operatorPublicKey, isSubmitKey)
-            .getTxBytesString(this.client, this.accountId);
+            .createTopic(topicMemo, PublicKey.fromString(executorPublicKey as string), isSubmitKey)
+            .getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialCreateTopicResult(txBytes);
     }
@@ -176,6 +159,7 @@ export class HederaAgentKit {
         topicId: TopicId,
         message: string,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<SubmitMessageResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -186,7 +170,7 @@ export class HederaAgentKit {
             return this.submitTopicMessageCustodial(topicId, message);
         }
 
-        return this.submitTopicMessageNonCustodial(topicId, message);
+        return this.submitTopicMessageNonCustodial(topicId, message, executorAccountDetails?.executorAccountId);
     }
 
     private async submitTopicMessageCustodial(
@@ -205,11 +189,13 @@ export class HederaAgentKit {
     private async submitTopicMessageNonCustodial(
         topicId: TopicId,
         message: string,
+        executorAccountId?: string | undefined,
     ): Promise<NonCustodialSubmitMessageResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
 
         const txBytes = await HcsTransactionBuilder
             .submitTopicMessage(topicId, message)
-            .getTxBytesString(this.client, this.accountId);
+            .getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialSubmitMessageResult(txBytes);
     }
@@ -218,6 +204,7 @@ export class HederaAgentKit {
         toAccountId: string | AccountId,
         amount: string,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<TransferHBARResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -228,12 +215,12 @@ export class HederaAgentKit {
             return this.transferHbarCustodial(toAccountId, amount);
         }
 
-        return this.transferHbarNonCustodial(toAccountId, amount);
+        return this.transferHbarNonCustodial(toAccountId, amount, executorAccountDetails?.executorAccountId);
     }
 
     private async transferHbarCustodial(
         toAccountId: string | AccountId,
-        amount: string
+        amount: string,
     ): Promise<CustodialTransferHbarResult> {
         if(!this.privateKey) throw new Error("Custodial actions require privateKey!");
 
@@ -246,12 +233,14 @@ export class HederaAgentKit {
 
     private async transferHbarNonCustodial(
         toAccountId: string | AccountId,
-        amount: string
+        amount: string,
+        executorAccountId: string | undefined,
     ): Promise<NonCustodialTransferHbarResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
 
         const txBytes = await HbarTransactionBuilder
-            .transferHbar(this.accountId, toAccountId, amount)
-            .getTxBytesString(this.client, this.accountId);
+            .transferHbar(executorAccountId, toAccountId, amount)
+            .getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialTransferHbarResult(txBytes);
     }
@@ -259,7 +248,8 @@ export class HederaAgentKit {
 
     async createFT(
         options: CreateFTOptions,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<CreateTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -270,7 +260,11 @@ export class HederaAgentKit {
             return this.createFTCustodial(options);
         }
 
-        return this.createFTNonCustodial(options);
+        return this.createFTNonCustodial(
+          options,
+          executorAccountDetails?.executorPublicKey,
+          executorAccountDetails?.executorAccountId
+        );
     }
 
     private async createFTCustodial(options: CreateFTOptions): Promise<CustodialCreateTokenResult> {
@@ -288,16 +282,23 @@ export class HederaAgentKit {
         return new CustodialCreateTokenResult(response.txHash, response.status, response.tokenId);
     }
 
-    private async createFTNonCustodial(options: CreateFTOptions): Promise<NonCustodialCreateTokenResult> {
+    private async createFTNonCustodial(
+      options: CreateFTOptions,
+      executorPublicKey?: string | undefined,
+      executorAccountId?: string | undefined,
+    ): Promise<NonCustodialCreateTokenResult> {
+        if(executorPublicKey === undefined) throw new Error("Executor public key is missing in non custodial action call!");
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.createToken(
             {
                 ...options,
                 tokenType: TokenType.FungibleCommon,
                 client: this.client,
             },
-            this.publicKey!,
-            this.accountId,
-        ).getTxBytesString(this.client, this.accountId);
+          PublicKey.fromString(executorPublicKey),
+          executorAccountId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialCreateTokenResult(txBytes);
     }
@@ -305,7 +306,8 @@ export class HederaAgentKit {
 
     async createNFT(
         options: CreateNFTOptions,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<CreateTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -316,7 +318,11 @@ export class HederaAgentKit {
             return this.createNFTCustodial(options);
         }
 
-        return this.createNFTNonCustodial(options);
+        return this.createNFTNonCustodial(
+          options,
+          executorAccountDetails?.executorPublicKey,
+          executorAccountDetails?.executorAccountId
+        );
     }
 
     private async createNFTCustodial(options: CreateNFTOptions): Promise<CustodialCreateTokenResult> {
@@ -337,7 +343,13 @@ export class HederaAgentKit {
         return new CustodialCreateTokenResult(response.txHash, response.status, response.tokenId);
     }
 
-    private async createNFTNonCustodial(options: CreateNFTOptions): Promise<NonCustodialCreateTokenResult> {
+    private async createNFTNonCustodial(
+      options: CreateNFTOptions,
+      executorPublicKey?: string | undefined,
+      executorAccountId?: string | undefined,
+    ): Promise<NonCustodialCreateTokenResult> {
+        if(executorPublicKey === undefined) throw new Error("Executor public key is missing in non custodial action call!");
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
         const txBytes = await HtsTransactionBuilder.createToken(
             {
                 ...options,
@@ -347,9 +359,9 @@ export class HederaAgentKit {
                 tokenType: TokenType.NonFungibleUnique,
                 client: this.client,
             },
-            this.publicKey!,
-            this.accountId,
-        ).getTxBytesString(this.client, this.accountId);
+            PublicKey.fromString(executorPublicKey),
+            executorAccountId,
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialCreateTokenResult(txBytes);
     }
@@ -359,7 +371,8 @@ export class HederaAgentKit {
         tokenId: TokenId,
         toAccountId: string | AccountId,
         amount: number,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<TransferTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -370,7 +383,12 @@ export class HederaAgentKit {
             return this.transferTokenCustodial(tokenId, toAccountId, amount);
         }
 
-        return this.transferTokenNonCustodial(tokenId, toAccountId, amount);
+        return this.transferTokenNonCustodial(
+          tokenId,
+          toAccountId,
+          amount,
+          executorAccountDetails?.executorAccountId
+        );
     }
 
     private async transferTokenCustodial(
@@ -391,42 +409,94 @@ export class HederaAgentKit {
     private async transferTokenNonCustodial(
         tokenId: TokenId,
         toAccountId: string | AccountId,
-        amount: number
+        amount: number,
+        executorAccountId: string | undefined,
     ): Promise<NonCustodialTransferTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.transferToken(
             tokenId,
             amount,
             toAccountId,
-            this.accountId
-        ).getTxBytesString(this.client, this.accountId);
+            executorAccountId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialTransferTokenResult(txBytes);
     }
 
 
-    async getHbarBalance(accountId?: string): Promise<number> {
-        const targetAccountId = accountId || this.client.operatorAccountId;
+    async getHbarBalance(
+      accountId?: string,
+      isCustodial?: boolean,
+      executorAccountDetails?: ExecutorAccountDetails,
+    ): Promise<number> {
+        const useCustodial = isCustodial ?? this.isCustodial;
+        if (!useCustodial && !executorAccountDetails?.executorAccountId) {
+            throw new Error(
+                "Executor account id is required for non-custodial actions"
+            );
+        }
+
+        // Pick the right fallback based on custodial vs non‑custodial
+        // fallback accountId will be used if no specific account id is passed
+        const fallbackAccountId = useCustodial
+          ? this.client.operatorAccountId!.toString()
+          : executorAccountDetails!.executorAccountId!;
+
+        const targetAccountId = accountId ?? fallbackAccountId;
         return get_hbar_balance(this.client, targetAccountId);
     }
+
 
 
     async getHtsBalance(
         tokenId: string,
         networkType: HederaNetworkType,
-        accountId?: string
+        accountId?: string,
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<number> {
-        const targetAccountId = accountId || this.client.operatorAccountId;
-        return get_hts_balance(tokenId, networkType, targetAccountId as string);
+        const useCustodial = custodial ?? this.isCustodial;
+        if (!useCustodial && !executorAccountDetails?.executorAccountId) {
+            throw new Error(
+              "Executor account id is required for non-custodial actions"
+            );
+        }
+
+        // Pick the right fallback based on custodial vs non‑custodial
+        // fallback accountId will be used if no specific account id is passed
+        const fallbackAccountId = useCustodial
+          ? this.client.operatorAccountId!.toString()
+          : executorAccountDetails!.executorAccountId!;
+
+        const targetAccountId = accountId ?? fallbackAccountId;
+        return get_hts_balance(tokenId, networkType, targetAccountId);
     }
 
 
     async getAllTokensBalances(
-        networkType: HederaNetworkType,
-        accountId?: string
+      networkType: HederaNetworkType,
+      accountId?: string,
+      custodial?: boolean,
+      executorAccountDetails?: ExecutorAccountDetails,
     ) {
-        const targetAccountId = accountId || this.client.operatorAccountId;
-        return get_all_tokens_balances(networkType, targetAccountId as string);
+        const useCustodial = custodial ?? this.isCustodial;
+        if (!useCustodial && !executorAccountDetails?.executorAccountId) {
+            throw new Error(
+              "Executor account id is required for non-custodial actions"
+            );
+        }
+
+        // Pick the right fallback based on custodial vs non‑custodial
+        // fallback accountId will be used if no specific account id is passed
+        const fallbackAccountId = useCustodial
+          ? this.client.operatorAccountId!.toString()
+          : executorAccountDetails!.executorAccountId!;
+
+        const targetAccountId = accountId ?? fallbackAccountId;
+        return get_all_tokens_balances(networkType, targetAccountId);
     }
+
 
 
     async getHtsTokenDetails(
@@ -448,7 +518,8 @@ export class HederaAgentKit {
 
     async associateToken(
         tokenId: TokenId,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<AssociateTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -459,7 +530,7 @@ export class HederaAgentKit {
             return this.associateTokenCustodial(tokenId);
         }
 
-        return this.associateTokenNonCustodial(tokenId);
+        return this.associateTokenNonCustodial(tokenId, executorAccountDetails?.executorAccountId);
     }
 
     private async associateTokenCustodial(
@@ -474,12 +545,15 @@ export class HederaAgentKit {
     }
 
     private async associateTokenNonCustodial(
-        tokenId: TokenId
+        tokenId: TokenId,
+        executorAccountId: string | undefined,
     ): Promise<NonCustodialAssociateTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.associateToken(
-            tokenId,
-            this.accountId
-        ).getTxBytesString(this.client, this.accountId);
+          tokenId,
+          executorAccountId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialAssociateTokenResult(txBytes);
     }
@@ -487,7 +561,8 @@ export class HederaAgentKit {
 
     async dissociateToken(
         tokenId: TokenId,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<DissociateTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -498,7 +573,7 @@ export class HederaAgentKit {
             return this.dissociateTokenCustodial(tokenId);
         }
 
-        return this.dissociateTokenNonCustodial(tokenId);
+        return this.dissociateTokenNonCustodial(tokenId, executorAccountDetails?.executorAccountId);
     }
 
     private async dissociateTokenCustodial(
@@ -513,12 +588,15 @@ export class HederaAgentKit {
     }
 
     private async dissociateTokenNonCustodial(
-        tokenId: TokenId
+        tokenId: TokenId,
+        executorAccountId: string | undefined,
     ): Promise<NonCustodialDissociateTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.dissociateToken(
             tokenId,
-            this.accountId
-        ).getTxBytesString(this.client, this.accountId);
+            executorAccountId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialDissociateTokenResult(txBytes);
     }
@@ -528,6 +606,7 @@ export class HederaAgentKit {
         tokenId: TokenId,
         recipients: AirdropRecipient[],
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<AirdropResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -538,7 +617,7 @@ export class HederaAgentKit {
             return this.airdropTokenCustodial(tokenId, recipients);
         }
 
-        return this.airdropTokenNonCustodial(tokenId, recipients);
+        return this.airdropTokenNonCustodial(tokenId, recipients, executorAccountDetails?.executorAccountId);
     }
 
     private async airdropTokenCustodial(
@@ -556,13 +635,16 @@ export class HederaAgentKit {
 
     private async airdropTokenNonCustodial(
         tokenId: TokenId,
-        recipients: AirdropRecipient[]
+        recipients: AirdropRecipient[],
+        executorAccountId: string | undefined
     ): Promise<NonCustodialAirdropTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.airdropToken(
             tokenId,
             recipients,
-            this.accountId
-        ).getTxBytesString(this.client, this.accountId);
+            executorAccountId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialAirdropTokenResult(txBytes);
     }
@@ -571,6 +653,7 @@ export class HederaAgentKit {
     async rejectToken(
         tokenId: TokenId,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<RejectTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -581,7 +664,7 @@ export class HederaAgentKit {
             return this.rejectTokenCustodial(tokenId);
         }
 
-        return this.rejectTokenNonCustodial(tokenId);
+        return this.rejectTokenNonCustodial(tokenId, executorAccountDetails?.executorAccountId);
     }
 
     private async rejectTokenCustodial(
@@ -597,11 +680,14 @@ export class HederaAgentKit {
 
     private async rejectTokenNonCustodial(
         tokenId: TokenId,
+        executorAccountId: string | undefined
     ): Promise<NonCustodialRejectTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.rejectToken(
             tokenId,
-            AccountId.fromString(this.accountId)
-        ).getTxBytesString(this.client, this.accountId);
+            AccountId.fromString(executorAccountId)
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialRejectTokenResult(txBytes);
     }
@@ -611,6 +697,7 @@ export class HederaAgentKit {
         tokenId: TokenId,
         amount: number,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<MintTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -621,7 +708,7 @@ export class HederaAgentKit {
             return this.mintTokenCustodial(tokenId, amount);
         }
 
-        return this.mintTokenNonCustodial(tokenId, amount);
+        return this.mintTokenNonCustodial(tokenId, amount, executorAccountDetails?.executorAccountId);
     }
 
     private async mintTokenCustodial(
@@ -638,12 +725,15 @@ export class HederaAgentKit {
 
     private async mintTokenNonCustodial(
         tokenId: TokenId,
-        amount: number
+        amount: number,
+        executorAccountId: string | undefined
     ): Promise<NonCustodialMintTokenResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.mintToken(
             tokenId,
             amount,
-        ).getTxBytesString(this.client, this.accountId);
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialMintTokenResult(txBytes);
     }
@@ -653,6 +743,7 @@ export class HederaAgentKit {
         tokenId: TokenId,
         tokenMetadata: Uint8Array,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<MintTokenResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -663,7 +754,7 @@ export class HederaAgentKit {
             return this.mintNFTTokenCustodial(tokenId, tokenMetadata);
         }
 
-        return this.mintNFTTokenNonCustodial(tokenId, tokenMetadata);
+        return this.mintNFTTokenNonCustodial(tokenId, tokenMetadata, executorAccountDetails?.executorAccountId);
     }
 
     private async mintNFTTokenCustodial(
@@ -680,12 +771,15 @@ export class HederaAgentKit {
 
     private async mintNFTTokenNonCustodial(
         tokenId: TokenId,
-        tokenMetadata: Uint8Array
+        tokenMetadata: Uint8Array,
+        executorAccountId: string | undefined
     ): Promise<NonCustodialMintNFTResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.mintNft(
             tokenId,
             tokenMetadata,
-        ).getTxBytesString(this.client, this.accountId);
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialMintNFTResult(txBytes);
     }
@@ -694,6 +788,7 @@ export class HederaAgentKit {
     async claimAirdrop(
         airdropId: PendingAirdropId,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<BaseResult<string> | BaseResult<ClaimAirdropResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -704,7 +799,7 @@ export class HederaAgentKit {
             return this.claimAirdropCustodial(airdropId);
         }
 
-        return this.claimAirdropNonCustodial(airdropId);
+        return this.claimAirdropNonCustodial(airdropId, executorAccountDetails?.executorAccountId);
     }
 
     private async claimAirdropCustodial(
@@ -718,27 +813,47 @@ export class HederaAgentKit {
     }
 
     private async claimAirdropNonCustodial(
-        airdropId: PendingAirdropId
+        airdropId: PendingAirdropId,
+        executorAccountId?: string | undefined
     ): Promise<NonCustodialClaimAirdropResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await HtsTransactionBuilder.claimAirdrop(
             airdropId
-        ).getTxBytesString(this.client, this.accountId);
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialClaimAirdropResult(txBytes);
     }
 
-
     async getPendingAirdrops(
-        accountId: string,
-        networkType: HederaNetworkType
+      networkType: HederaNetworkType,
+      accountId?: string,
+      custodial?: boolean,
+      executorAccountDetails?: ExecutorAccountDetails,
     ): Promise<Airdrop[]> {
-        return get_pending_airdrops(networkType, accountId)
+        const useCustodial = custodial ?? this.isCustodial;
+
+        if (!useCustodial && !executorAccountDetails?.executorAccountId) {
+            throw new Error(
+              "Executor account id is required for non-custodial actions"
+            );
+        }
+
+        // Pick the right fallback based on custodial vs non‑custodial
+        // fallback accountId will be used if no specific account id is passed
+        const fallbackAccountId = useCustodial
+          ? this.client.operatorAccountId!.toString()
+          : executorAccountDetails!.executorAccountId!;
+
+        const targetAccountId = accountId ?? fallbackAccountId;
+        return get_pending_airdrops(networkType, targetAccountId)
     }
 
 
     async deleteTopic(
         topicId: TopicId,
         custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<DeleteTopicResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -749,7 +864,7 @@ export class HederaAgentKit {
             return this.deleteTopicCustodial(topicId);
         }
 
-        return this.deleteTopicNonCustodial(topicId);
+        return this.deleteTopicNonCustodial(topicId, executorAccountDetails?.executorAccountId);
     }
 
     private async deleteTopicCustodial(
@@ -763,11 +878,13 @@ export class HederaAgentKit {
     }
 
     private async deleteTopicNonCustodial(
-        topicId: TopicId
+        topicId: TopicId,
+        executorAccountId: string | undefined,
     ): Promise<NonCustodialDeleteTopicResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
         const txBytes =  await HcsTransactionBuilder.deleteTopic(
             topicId
-        ).getTxBytesString(this.client, this.accountId);
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialDeleteTopicResult(txBytes);
     }
@@ -795,7 +912,8 @@ export class HederaAgentKit {
         spenderAccount: AccountId | string,
         amount: number,
         tokenId?: TokenId,
-        custodial?: boolean
+        custodial?: boolean,
+        executorAccountDetails?: ExecutorAccountDetails
     ): Promise<BaseResult<string> | BaseResult<AssetAllowanceResult>> {
         const useCustodial = custodial ?? this.isCustodial;
 
@@ -806,7 +924,12 @@ export class HederaAgentKit {
             return this.approveAssetAllowanceCustodial(spenderAccount, amount, tokenId);
         }
 
-        return this.approveAssetAllowanceNonCustodial(spenderAccount, amount, tokenId);
+        return this.approveAssetAllowanceNonCustodial(
+          spenderAccount,
+          amount,
+          executorAccountDetails?.executorAccountId,
+          tokenId,
+        );
     }
 
     async approveAssetAllowanceCustodial(
@@ -825,16 +948,19 @@ export class HederaAgentKit {
     }
 
     async approveAssetAllowanceNonCustodial(
-        spenderAccount: AccountId | string,
-        amount: number,
-        tokenId?: TokenId,
+      spenderAccount: AccountId | string,
+      amount: number,
+      executorAccountId: string | undefined,
+      tokenId?: TokenId,
     ): Promise<NonCustodialAssetAllowanceResult> {
+        if(executorAccountId === undefined) throw new Error("Executor account id is missing in non custodial action call!");
+
         const txBytes = await AccountTransactionBuilder.approveAssetAllowance(
-            spenderAccount,
-            amount,
-            this.accountId,
-            tokenId
-        ).getTxBytesString(this.client, this.accountId);
+          spenderAccount,
+          amount,
+          executorAccountId,
+          tokenId
+        ).getTxBytesString(this.client, executorAccountId);
 
         return new NonCustodialAssetAllowanceResult(txBytes);
     }

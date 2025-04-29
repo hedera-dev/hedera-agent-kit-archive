@@ -15,6 +15,7 @@ import {
     Account,
     AccountTokensResponse,
     AccountToken,
+    Transaction,
 } from "../types";
 import BigNumber from "bignumber.js";
 import { fromBaseToDisplayUnit, fromTinybarToHbar } from "./utils";
@@ -72,20 +73,9 @@ export class HederaMirrorNodeClient {
         senderId: string,
         receiversId: string[]
     ): Promise<txReport> {
-        const url = `${this.baseUrl}/transactions/${transactionId}`;
-        console.log(`URL: ${url}`);
+        const transaction = await this.getTransactionDetails(transactionId);
 
-        const response = await fetch(
-            `${this.baseUrl}/transactions/${transactionId}`
-        );
-        if (!response.ok) {
-            throw new Error(
-                `Hedera Mirror Node API error: ${response.statusText}`
-            );
-        }
-        const result: TransactionsResponse = await response.json();
-
-        const totalFees = result.transactions[0].transfers
+        const totalFees = transaction.transfers
             .filter(
                 (t) =>
                     t.account !== senderId &&
@@ -93,7 +83,7 @@ export class HederaMirrorNodeClient {
             )
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const status = result.transactions[0].result;
+        const status = transaction.result;
 
         const txReport = {
             status,
@@ -226,7 +216,6 @@ export class HederaMirrorNodeClient {
         accountId: string,
         tokenId: string
     ): Promise<AccountToken | undefined> {
-        console.log({baseUrl: this.baseUrl})
         const url = `${this.baseUrl}/accounts/${accountId}/tokens?token.id=${tokenId}&limit=1&order=desc`;
 
         const response = await fetch(url);
@@ -309,5 +298,19 @@ export class HederaMirrorNodeClient {
             );
             throw error;
         }
+    }
+
+    async getTransactionDetails(txHash: string): Promise<Transaction> {
+        const url = `${this.baseUrl}/transactions/${txHash}`;
+        console.log(`URL: ${url}`);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(
+              `Hedera Mirror Node API error: ${response.statusText}`
+            );
+        }
+        const result: TransactionsResponse = await response.json();
+        return result.transactions[0];
     }
 }

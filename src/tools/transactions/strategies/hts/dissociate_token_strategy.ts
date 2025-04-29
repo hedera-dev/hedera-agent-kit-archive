@@ -19,6 +19,7 @@ export class DissociateTokenStrategy implements TransactionStrategy<DissociateTo
         return new TokenDissociateTransaction()
             .setAccountId(this.issuerAccountId)
             .setTokenIds([this.tokenId])
+             .setTransactionValidDuration(180);
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): DissociateTokenResult {

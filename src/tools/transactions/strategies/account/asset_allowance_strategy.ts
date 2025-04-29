@@ -16,7 +16,8 @@ export class AssetAllowanceStrategy implements TransactionStrategy<AssetAllowanc
     ) {}
 
     build(): Transaction {
-        const tx = new AccountAllowanceApproveTransaction()
+        const tx = new AccountAllowanceApproveTransaction();
+        tx.setTransactionValidDuration(180);
         if (this.tokenId) {
             tx.approveTokenAllowance(this.tokenId, this.payerAccountId, this.spenderAccountId, this.amount)
         } else {

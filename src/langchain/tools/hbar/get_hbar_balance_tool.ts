@@ -1,5 +1,7 @@
-import { Tool } from "@langchain/core/tools";
+import { Tool, ToolRunnableConfig } from "@langchain/core/tools";
 import HederaAgentKit from "../../../agent";
+import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
+import { prepareExecutorAccountDetails } from "../../../utils/langchain-tools-utils";
 
 export class HederaGetBalanceTool extends Tool {
     name = 'hedera_get_hbar_balance'
@@ -23,13 +25,24 @@ If no input is given (empty JSON '{}'), it returns the balance of the connected 
         super()
     }
 
-    protected async _call(input: string): Promise<string> {
+    protected override async _call(input: any, _runManager?: CallbackManagerForToolRun, config?: ToolRunnableConfig): Promise<string> {
         try {
+            const isCustodial = config?.configurable?.isCustodial === true;
+            const executorAccountDetails = await prepareExecutorAccountDetails(
+              isCustodial,
+              config?.configurable?.executorAccountDetails,
+              this.hederaKit.network
+            );
+
             console.log('hedera_get_hbar_balance tool has been called')
 
             const parsedInput = JSON.parse(input);
 
-            const balance = await this.hederaKit.getHbarBalance(parsedInput?.accountId);
+            const balance = await this.hederaKit.getHbarBalance(
+              parsedInput?.accountId,
+              isCustodial,
+              executorAccountDetails
+            );
 
             return JSON.stringify({
                 status: "success",

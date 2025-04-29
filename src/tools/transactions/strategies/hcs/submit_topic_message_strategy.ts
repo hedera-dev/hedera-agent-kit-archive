@@ -15,10 +15,12 @@ export class SubmitTopicMessageStrategy implements TransactionStrategy<SubmitMes
     ) {}
 
     build(): Transaction {
-        return new TopicMessageSubmitTransaction({
+        const tx = new TopicMessageSubmitTransaction({
             topicId: this.topicId,
             message: this.message,
-        });
+        })
+        tx.setTransactionValidDuration(180);
+        return tx;
     }
 
     formatResult(txResponse: TransactionResponse, receipt:  TransactionReceipt): SubmitMessageResult {

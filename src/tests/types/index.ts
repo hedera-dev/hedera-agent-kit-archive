@@ -101,7 +101,7 @@ export type Transaction = {
     bytes: null;
     charged_tx_fee: number;
     consensus_timestamp: string;
-    entity_id: null;
+    entity_id: string;
     max_fee: string;
     memo_base64: string;
     name: string;

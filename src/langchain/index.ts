@@ -19,7 +19,7 @@ import { HederaGetTokenHoldersTool } from "./tools/hts/get_token_holders_tool";
 import { HederaMintFungibleTokenTool } from "./tools/hts/mint_fungible_token_tool";
 import { HederaMintNFTTool } from "./tools/hts/mint_non_fungible_token_tool";
 import { HederaRejectTokenTool } from "./tools/hts/reject_token_tool";
-import { HederaTransferHbarTool } from "./tools/hts/transfer_native_hbar_token_tool";
+import { HederaTransferHbarTool } from "./tools/hbar/transfer_native_hbar_token_tool";
 import { HederaTransferTokenTool } from "./tools/hts/transfer_token_tool";
 import { HederaDissociateTokenTool } from "./tools/hts/dissociate_token_tool";
 
