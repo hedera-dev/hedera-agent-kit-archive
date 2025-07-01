@@ -47,7 +47,7 @@ class TestQueryTool extends BaseHederaQueryTool<typeof TestSchema> {
 
 describe('Query Tool Notes System', () => {
   it('should add user-friendly notes when fields are truncated', async () => {
-    const signer = new ServerSigner(
+    const signer = await ServerSigner.create(
       process.env.HEDERA_ACCOUNT_ID!,
       process.env.HEDERA_PRIVATE_KEY!,
       'testnet'
@@ -93,7 +93,7 @@ describe('Query Tool Notes System', () => {
   });
 
   it('should not add notes when no truncation occurs', async () => {
-    const signer = new ServerSigner(
+    const signer = await ServerSigner.create(
       process.env.HEDERA_ACCOUNT_ID!,
       process.env.HEDERA_PRIVATE_KEY!,
       'testnet'

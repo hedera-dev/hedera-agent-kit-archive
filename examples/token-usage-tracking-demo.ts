@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   }
 
   // Initialize the signer and agent
-  const signer = new ServerSigner(
+  const signer = await ServerSigner.create(
     operatorId,
     operatorKey,
     network as HederaNetworkType

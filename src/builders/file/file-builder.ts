@@ -14,7 +14,7 @@ import {
 } from '../../types';
 import { BaseServiceBuilder } from '../base-service-builder';
 import { HederaAgentKit } from '../../agent/agent';
-import { detectKeyTypeFromString } from '../../utils/key-type-detector';
+import { detectKeyTypeFromMirrorNode } from '../../utils/key-type-detector';
 
 const MAX_FILE_APPEND_BYTES = 6000;
 
@@ -30,7 +30,7 @@ export class FileBuilder extends BaseServiceBuilder {
    * @param {CreateFileParams} params
    * @returns {this}
    */
-  public createFile(params: CreateFileParams): this {
+  public async createFile(params: CreateFileParams): Promise<this> {
     this.clearNotes();
     const transaction = new FileCreateTransaction();
 
@@ -43,20 +43,25 @@ export class FileBuilder extends BaseServiceBuilder {
     }
 
     if (params.keys) {
-      const publicKeys: PublicKey[] = params.keys
-        .map((keyInput) => {
-          if (typeof keyInput === 'string') {
-            const keyDetection = detectKeyTypeFromString(keyInput);
-            return keyDetection.privateKey.publicKey;
-          } else if (keyInput instanceof PublicKey) {
-            return keyInput;
-          }
-          this.logger.warn(
-            'FileBuilder: createFile expects keys to be string or PublicKey. Other types are ignored.'
-          );
-          return undefined;
-        })
-        .filter((key): key is PublicKey => key instanceof PublicKey);
+      const publicKeys: PublicKey[] = (
+        await Promise.all(
+          params.keys.map(async (keyInput) => {
+            if (typeof keyInput === 'string') {
+              const keyDetection = await detectKeyTypeFromMirrorNode(
+                this.kit.mirrorNode, this.kit.userAccountId!, keyInput
+              );
+              return keyDetection.privateKey.publicKey;
+            } else if (keyInput instanceof PublicKey) {
+              return keyInput;
+            } else {
+              this.logger.warn(
+                'FileBuilder: createFile expects keys to be string or PublicKey. Other types are ignored.'
+              );
+              return undefined;
+            }
+          })
+        )
+      ).filter((key): key is PublicKey => key instanceof PublicKey);
 
       if (publicKeys.length > 0) {
         transaction.setKeys(publicKeys);
@@ -112,7 +117,7 @@ export class FileBuilder extends BaseServiceBuilder {
    * @returns {this}
    * @throws {Error}
    */
-  public updateFile(params: UpdateFileParams): this {
+  public async updateFile(params: UpdateFileParams): Promise<this> {
     this.clearNotes();
     if (!params.fileId) {
       throw new Error('File ID is required to update a file.');
@@ -128,20 +133,26 @@ export class FileBuilder extends BaseServiceBuilder {
     }
 
     if (params.keys) {
-      const publicKeys: PublicKey[] = params.keys
-        .map((keyInput) => {
-          if (typeof keyInput === 'string') {
-            const keyDetection = detectKeyTypeFromString(keyInput);
-            return keyDetection.privateKey.publicKey;
-          } else if (keyInput instanceof PublicKey) {
-            return keyInput;
-          }
-          this.logger.warn(
-            'FileBuilder: updateFile expects keys to be string or PublicKey. Other types are ignored.'
-          );
-          return undefined;
-        })
-        .filter((key): key is PublicKey => key instanceof PublicKey);
+      const publicKeys: PublicKey[] = (
+        await Promise.all(
+          params.keys.map(async (keyInput) => {
+            if (typeof keyInput === 'string') {
+              const keyDetection = await detectKeyTypeFromMirrorNode(
+                this.kit.mirrorNode,
+                this.kit.userAccountId!,
+                keyInput
+              );
+              return keyDetection.privateKey.publicKey;
+            } else if (keyInput instanceof PublicKey) {
+              return keyInput;
+            }
+            this.logger.warn(
+              'FileBuilder: updateFile expects keys to be string or PublicKey. Other types are ignored.'
+            );
+            return undefined;
+          })
+        )
+      ).filter((key): key is PublicKey => key instanceof PublicKey);
 
       if (publicKeys.length > 0) {
         transaction.setKeys(publicKeys);

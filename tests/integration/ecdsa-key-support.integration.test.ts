@@ -3,57 +3,56 @@ import { PrivateKey } from '@hashgraph/sdk';
 import { ServerSigner } from '../../src/signer/server-signer';
 import { HederaAgentKit } from '../../src/agent/agent';
 import { parseKey } from '../../src/utils/key-utils';
-import { detectKeyTypeFromString } from '../../src/utils/key-type-detector';
+import { detectKeyTypeFromMirrorNode } from '../../src/utils/key-type-detector';
 import './setup-env';
+import { HederaMirrorNode } from '../../src/services';
 
 describe('ECDSA Key Support Integration Tests', () => {
-  let testAccountId: string;
-  let testPrivateKey: string;
+  let testAccountIdECDSA: string;
+  let testAccountIdECDSAHexEncoded: string;
+  let testAccountIdECDSADerEncoded: string;
+
+  let testAccountIdED25519: string;
+  let testAccountIdED25519HexEncoded: string;
+  let testAccountIdED25519DerEncoded: string;
+
   let testNetwork: 'testnet' | 'mainnet' = 'testnet';
+  let mirrorNode = new HederaMirrorNode(testNetwork);
 
   beforeAll(async () => {
-    testAccountId = process.env.HEDERA_ACCOUNT_ID!;
-    testPrivateKey = process.env.HEDERA_PRIVATE_KEY!;
+    testAccountIdECDSA = '0.0.3626626';
+    testAccountIdECDSAHexEncoded = '0x3f9851dfafd9e168015da972acfb2adc4413bd085600bf26faddcf50f2fbea23';
+    testAccountIdECDSADerEncoded = '3030020100300706052b8104000a042204203f9851dfafd9e168015da972acfb2adc4413bd085600bf26faddcf50f2fbea23';
 
-    if (!testAccountId || !testPrivateKey) {
-      throw new Error(
-        'HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY must be set in environment'
-      );
-    }
+    testAccountIdED25519 = '0.0.3573758';
+    testAccountIdED25519HexEncoded = '0x240e25755ee21aa8ad034a125cc5b33343c1a73eed0a573a2f3c1d8879849eb7';
+    testAccountIdED25519DerEncoded = '302e020100300506032b657004220420240e25755ee21aa8ad034a125cc5b33343c1a73eed0a573a2f3c1d8879849eb7';
   });
 
   describe('Key Type Detection', () => {
-    it('should correctly detect ECDSA key with 0x prefix', () => {
-      const ecdsaKey0x =
-        '0xabcd1234567890abcd1234567890abcd1234567890abcd1234567890abcd1234';
-      const result = detectKeyTypeFromString(ecdsaKey0x);
+    it('should correctly detect ECDSA key with 0x prefix', async () => {
+      const result = await detectKeyTypeFromMirrorNode(mirrorNode, testAccountIdECDSA, testAccountIdECDSAHexEncoded);
 
       expect(result.detectedType).toBe('ecdsa');
       expect(result.privateKey).toBeDefined();
     });
 
-    it('should correctly detect ECDSA key with DER prefix', () => {
-      const ecdsaKeyDer =
-        '3030020100300706052b8104000a04220420abcd1234567890abcd1234567890abcd1234567890abcd1234567890abcd1234';
-      const result = detectKeyTypeFromString(ecdsaKeyDer);
+    it('should correctly detect ECDSA key with DER prefix', async () => {
+      const result = await detectKeyTypeFromMirrorNode(mirrorNode, testAccountIdECDSA, testAccountIdECDSADerEncoded);
 
       expect(result.detectedType).toBe('ecdsa');
       expect(result.privateKey).toBeDefined();
     });
 
-    it('should correctly detect ED25519 key', () => {
-      const ed25519Key =
-        '302e020100300506032b6570042204201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-      const result = detectKeyTypeFromString(ed25519Key);
+    it('should correctly detect ED25519 key', async () => {
+      const result = await detectKeyTypeFromMirrorNode(mirrorNode, testAccountIdED25519, testAccountIdED25519DerEncoded);
 
       expect(result.detectedType).toBe('ed25519');
       expect(result.privateKey).toBeDefined();
     });
 
-    it('should handle key detection in parseKey utility', () => {
-      const ecdsaKey =
-        '0xabcd1234567890abcd1234567890abcd1234567890abcd1234567890abcd1234';
-      const parsedKey = parseKey(ecdsaKey);
+    it('should handle key detection in parseKey utility', async () => {
+      const parsedKey = await parseKey(mirrorNode, testAccountIdECDSA, testAccountIdECDSAHexEncoded);
 
       expect(parsedKey).toBeDefined();
       expect(parsedKey).not.toBeNull();
@@ -65,47 +64,47 @@ describe('ECDSA Key Support Integration Tests', () => {
       const ecdsaPrivateKey = PrivateKey.generateECDSA();
       const ecdsaKeyString = ecdsaPrivateKey.toString();
 
-      const signer = new ServerSigner(
-        testAccountId,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
         ecdsaKeyString,
         testNetwork
       );
 
       expect(signer).toBeDefined();
-      expect(signer.getAccountId().toString()).toBe(testAccountId);
-      expect(signer.getKeyTypeSync()).toBeDefined();
+      expect(signer.getAccountId().toString()).toBe(testAccountIdECDSA);
+      expect(signer.getKeyType()).toBeDefined();
     });
 
     it('should create ServerSigner with ED25519 key string', async () => {
       const ed25519PrivateKey = PrivateKey.generateED25519();
       const ed25519KeyString = ed25519PrivateKey.toString();
 
-      const signer = new ServerSigner(
-        testAccountId,
+      const signer = await ServerSigner.create(
+        testAccountIdED25519,
         ed25519KeyString,
         testNetwork
       );
 
       expect(signer).toBeDefined();
-      expect(signer.getAccountId().toString()).toBe(testAccountId);
-      expect(signer.getKeyTypeSync()).toBe('ed25519');
+      expect(signer.getAccountId().toString()).toBe(testAccountIdED25519);
+      expect(signer.getKeyType()).toBe('ed25519');
     });
 
-    it('should handle PrivateKey object directly', () => {
-      const privateKey = PrivateKey.fromString(testPrivateKey);
+    it('should handle PrivateKey object directly', async () => {
+      const privateKey = PrivateKey.fromString(testAccountIdECDSADerEncoded);
 
-      const signer = new ServerSigner(testAccountId, privateKey, testNetwork);
+      const signer = await ServerSigner.create(testAccountIdECDSA, privateKey, testNetwork);
 
       expect(signer).toBeDefined();
-      expect(signer.getAccountId().toString()).toBe(testAccountId);
+      expect(signer.getAccountId().toString()).toBe(testAccountIdECDSA);
     });
   });
 
   describe('HederaAgentKit with ECDSA Keys', () => {
     it('should create HederaAgentKit with ECDSA signer', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSADerEncoded,
         testNetwork
       );
 
@@ -118,9 +117,9 @@ describe('ECDSA Key Support Integration Tests', () => {
 
   describe('Account Operations with ECDSA Keys', () => {
     it('should handle ECDSA key in account creation', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSADerEncoded,
         testNetwork
       );
 
@@ -131,17 +130,16 @@ describe('ECDSA Key Support Integration Tests', () => {
       const newAccountKey = PrivateKey.generateECDSA();
       const keyString = newAccountKey.toString();
 
-      const transaction = accountBuilder
-        .createAccount({ key: keyString })
-        .getCurrentTransaction();
+      const builder = await accountBuilder.createAccount({ key: keyString });
+      const transaction = builder.getCurrentTransaction();
 
       expect(transaction).toBeDefined();
     });
 
     it('should handle ECDSA key in account update', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSADerEncoded,
         testNetwork
       );
 
@@ -152,13 +150,13 @@ describe('ECDSA Key Support Integration Tests', () => {
       const newKey = PrivateKey.generateECDSA();
       const keyString = newKey.toString();
 
-      const transaction = accountBuilder
+      const builder = await accountBuilder
         .updateAccount({
-          accountIdToUpdate: testAccountId,
+          accountIdToUpdate: testAccountIdECDSA,
           key: keyString,
           amount: 0,
         })
-        .getCurrentTransaction();
+      const transaction = builder.getCurrentTransaction();
 
       expect(transaction).toBeDefined();
     });
@@ -166,12 +164,11 @@ describe('ECDSA Key Support Integration Tests', () => {
 
   describe('File Operations with ECDSA Keys', () => {
     it('should handle ECDSA keys in file creation', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSADerEncoded,
         testNetwork
       );
-
       const testKit = new HederaAgentKit(signer);
       await testKit.initialize();
       const fileBuilder = testKit.fs();
@@ -179,12 +176,12 @@ describe('ECDSA Key Support Integration Tests', () => {
       const key1 = PrivateKey.generateECDSA().toString();
       const key2 = PrivateKey.generateED25519().toString();
 
-      const transaction = fileBuilder
+      const builder = await fileBuilder
         .createFile({
           contents: 'Test file with mixed key types',
           keys: [key1, key2],
         })
-        .getCurrentTransaction();
+      const transaction = builder.getCurrentTransaction()
 
       expect(transaction).toBeDefined();
     });
@@ -192,9 +189,9 @@ describe('ECDSA Key Support Integration Tests', () => {
 
   describe('Contract Operations with ECDSA Admin Keys', () => {
     it('should handle ECDSA admin key in contract creation', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSAHexEncoded,
         testNetwork
       );
 
@@ -204,7 +201,7 @@ describe('ECDSA Key Support Integration Tests', () => {
 
       const adminKey = PrivateKey.generateECDSA().toString();
 
-      const transaction = contractBuilder
+      const builder = await contractBuilder
         .createContract({
           bytecode: '0x123456',
           adminKey: adminKey,
@@ -212,22 +209,31 @@ describe('ECDSA Key Support Integration Tests', () => {
           contractId: '0.0.1234567890',
           functionName: 'functionName',
         })
-        .getCurrentTransaction();
+      const transaction = builder.getCurrentTransaction()
 
       expect(transaction).toBeDefined();
     });
   });
 
   describe('Mirror Node Key Type Verification', () => {
-    it('should verify key type with mirror node in ServerSigner', async () => {
-      const signer = new ServerSigner(
-        testAccountId,
-        testPrivateKey,
+    it('should detect ECDSA key type using ServerSigner', async () => {
+      const signer = await ServerSigner.create(
+        testAccountIdECDSA,
+        testAccountIdECDSADerEncoded,
         testNetwork
       );
+      const keyType = signer.getKeyType();
+      expect(keyType).toBe('ecdsa');
+    });
 
-      const keyType = await signer.getKeyType();
-      expect(['ed25519', 'ecdsa']).toContain(keyType);
+    it('should detect ED25519 key type using ServerSigner', async () => {
+      const signer = await ServerSigner.create(
+        testAccountIdED25519,
+        testAccountIdED25519DerEncoded,
+        testNetwork
+      );
+      const keyType = signer.getKeyType();
+      expect(keyType).toBe('ed25519');
     });
   });
 });

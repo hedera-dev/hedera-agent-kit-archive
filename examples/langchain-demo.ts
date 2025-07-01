@@ -96,7 +96,7 @@ ${hederaGradient(
     throw new Error('OPENAI_API_KEY must be set in .env');
   }
 
-  const agentSigner = new ServerSigner(operatorId, operatorKey, network);
+  const agentSigner = await ServerSigner.create(operatorId, operatorKey, network);
 
   const conversationalAgent = new HederaConversationalAgent(agentSigner, {
     operationalMode: mode as 'provideBytes' | 'directExecution',
@@ -200,7 +200,7 @@ ${hederaGradient(
       )}`
     );
     try {
-      const userSigner = new ServerSigner(
+      const userSigner = await ServerSigner.create(
         userAccountId,
         userPrivateKey,
         network

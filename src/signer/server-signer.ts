@@ -9,7 +9,8 @@ import {
 import { AbstractSigner } from './abstract-signer';
 import { HederaNetworkType } from '../types';
 import { Logger } from '../utils/logger';
-import { detectKeyTypeFromString } from '../utils/key-type-detector';
+import { HederaMirrorNode } from '../services/mirror-node';
+import { detectKeyTypeFromMirrorNode, KeyType } from '../utils/key-type-detector';
 
 /**
  * A signer implementation for server-side environments that uses a private key for signing.
@@ -20,116 +21,109 @@ export class ServerSigner extends AbstractSigner {
   private accountIdInternal: AccountId;
   private privateKey: PrivateKey;
   private networkInternal: HederaNetworkType;
-  private keyType: 'ed25519' | 'ecdsa' = 'ed25519';
+  private keyType: KeyType;
   private logger: Logger;
-  private privateKeyString: string;
-  private keyTypeVerified: boolean = false;
 
   /**
    * Constructs a ServerSigner instance.
-   * @param {string | AccountId} accountId - The Hedera account ID.
-   * @param {string | PrivateKey} privateKey - The private key for the account.
+   * @param {AccountId} accountId - The Hedera account ID.
+   * @param {PrivateKey} privateKey - The parsed PrivateKey object.
+   * @param {KeyType} keyType - The type of the private key ('ed25519' or 'ecdsa').
    * @param {HederaNetworkType} network - The Hedera network to connect to ('mainnet' or 'testnet').
+   * @param {Client} client - The Hedera Client instance configured for this signer.
+   * @param {Logger} logger - The logger instance for this signer.
+   * @param {HederaMirrorNode} mirrorNode - The mirror node instance for key type verification.
    */
-  constructor(
+  private constructor(
+    accountId: AccountId,
+    privateKey: PrivateKey,
+    keyType: KeyType,
+    network: HederaNetworkType,
+    client: Client,
+    logger: Logger,
+    mirrorNode: HederaMirrorNode
+  ) {
+    super();
+    this.accountIdInternal = accountId;
+    this.privateKey = privateKey;
+    this.keyType = keyType;
+    this.networkInternal = network;
+    this.client = client;
+    this.mirrorNode = mirrorNode;
+    this.client.setOperator(this.accountIdInternal, this.privateKey);
+    this.logger = logger;
+  }
+
+  /**
+   * Asynchronously creates and initializes a ServerSigner instance.
+   * Detects the key type using the mirror node and parses the provided private key accordingly.
+   * @param {string | AccountId} accountId - The Hedera account ID.
+   * @param {string | PrivateKey} privateKey - The private key (string or object).
+   * @param {HederaNetworkType} network - The Hedera network to connect to ('mainnet' or 'testnet').
+   * @returns {Promise<ServerSigner>} The fully initialized ServerSigner instance.
+   */
+  public static async create(
     accountId: string | AccountId,
     privateKey: string | PrivateKey,
     network: HederaNetworkType
-  ) {
-    super();
-    this.accountIdInternal = AccountId.fromString(accountId.toString());
-    this.networkInternal = network;
-    this.logger = new Logger({
+  ): Promise<ServerSigner> {
+    const accId = AccountId.fromString(accountId.toString());
+    const logger = new Logger({
       module: 'ServerSigner',
       level: process.env.DEBUG === 'true' ? 'debug' : 'warn',
     });
 
-    this.initializeMirrorNode(this.networkInternal, 'ServerSigner');
-
+    let client: Client;
     if (network === 'mainnet') {
-      this.client = Client.forMainnet();
+      client = Client.forMainnet();
     } else if (network === 'testnet') {
-      this.client = Client.forTestnet();
+      client = Client.forTestnet();
     } else {
       throw new Error(
         `Unsupported Hedera network type specified: ${network}. Only 'mainnet' or 'testnet' are supported.`
       );
     }
 
+    const mirrorNode = new HederaMirrorNode(
+      network,
+      new Logger({
+        level: 'info',
+        module: 'ServerSigner-MirrorNode',
+      })
+    );
+
+    let keyType: KeyType;
+    let privKey: PrivateKey;
+
     if (typeof privateKey === 'string') {
-      this.privateKeyString = privateKey;
-      try {
-        const keyDetection = detectKeyTypeFromString(privateKey);
-        this.privateKey = keyDetection.privateKey;
-        this.keyType = keyDetection.detectedType;
-        this.initializeOperator();
-        this.logger.debug(`Detected key type from string: ${this.keyType}`);
-      } catch (error: unknown) {
-        this.logger.warn(
-          'Failed to detect key type from private key format, will query mirror node',
-          (error as Error).message
-        );
-        this.privateKey = PrivateKey.fromStringED25519(privateKey);
-        this.keyType = 'ed25519';
-      }
+      const detection = await detectKeyTypeFromMirrorNode(
+        mirrorNode,
+        accId.toString(),
+        privateKey
+      );
+      privKey = detection.privateKey;
+      keyType = detection.detectedType;
+      logger.debug(`Detected key type for ${accId}: ${keyType}`);
     } else {
-      this.privateKey = privateKey;
-      this.privateKeyString = privateKey.toString();
+      const detection = await detectKeyTypeFromMirrorNode(
+        mirrorNode,
+        accId.toString(),
+        privateKey.toStringDer()
+      );
+      privKey = detection.privateKey;
+      keyType = detection.detectedType;
+      logger.debug(`Detected key type for ${accId}: ${keyType}`);
     }
 
-    this.client.setOperator(this.accountIdInternal, this.privateKey);
-  }
-
-  /**
-   * Initializes the operator by verifying the key type against the mirror node.
-   * This follows the pattern from standards-sdk to ensure the correct key type is used.
-   */
-  private async initializeOperator(): Promise<void> {
-    try {
-      const account = await this.mirrorNode.requestAccount(
-        this.accountIdInternal.toString()
-      );
-      const keyType = account?.key?._type;
-
-      let actualKeyType: 'ed25519' | 'ecdsa' = 'ed25519';
-
-      if (keyType?.includes('ECDSA')) {
-        actualKeyType = 'ecdsa';
-      } else if (keyType?.includes('ED25519')) {
-        actualKeyType = 'ed25519';
-      }
-
-      if (actualKeyType !== this.keyType) {
-        this.logger.debug(
-          `Key type mismatch detected. String detection: ${this.keyType}, Mirror node: ${actualKeyType}. Using mirror node result.`
-        );
-
-        this.keyType = actualKeyType;
-
-        if (this.privateKeyString) {
-          this.privateKey =
-            actualKeyType === 'ecdsa'
-              ? PrivateKey.fromStringECDSA(this.privateKeyString)
-              : PrivateKey.fromStringED25519(this.privateKeyString);
-
-          this.client.setOperator(this.accountIdInternal, this.privateKey);
-
-          this.logger.debug(
-            `Updated operator with verified key type: ${this.keyType}`
-          );
-        }
-      } else {
-        this.logger.debug(`Key type verification successful: ${this.keyType}`);
-      }
-      this.keyTypeVerified = true;
-    } catch (error) {
-      this.logger.error(
-        `Failed to verify key type from mirror node: ${
-          (error as Error).message
-        }`
-      );
-      this.keyTypeVerified = true;
-    }
+    return new ServerSigner(
+      accId,
+      privKey,
+      keyType,
+      network,
+      client,
+      logger,
+      mirrorNode
+    );
   }
 
   /**
@@ -150,18 +144,12 @@ export class ServerSigner extends AbstractSigner {
     transaction: Transaction
   ): Promise<TransactionReceipt> {
     if (!transaction.isFrozen()) {
-      if (transaction.transactionId) {
-        await transaction.freezeWith(this.client);
-      } else {
-        await transaction.freezeWith(this.client);
-      }
+      await transaction.freezeWith(this.client);
     }
     if (transaction.getSignatures().size === 0) {
       await transaction.sign(this.privateKey);
     }
-    const response: TransactionResponse = await transaction.execute(
-      this.client
-    );
+    const response: TransactionResponse = await transaction.execute(this.client);
     return response.getReceipt(this.client);
   }
 
@@ -193,18 +181,7 @@ export class ServerSigner extends AbstractSigner {
    * Retrieves the key type of the operator's private key.
    * @returns {Promise<'ed25519' | 'ecdsa'>} The key type.
    */
-  public async getKeyType(): Promise<'ed25519' | 'ecdsa'> {
-    if (!this.keyTypeVerified && this.privateKeyString) {
-      await this.initializeOperator();
-    }
-    return this.keyType;
-  }
-
-  /**
-   * Retrieves the key type synchronously (without mirror node verification).
-   * @returns {'ed25519' | 'ecdsa'} The key type.
-   */
-  public getKeyTypeSync(): 'ed25519' | 'ecdsa' {
+  public getKeyType(): KeyType {
     return this.keyType;
   }
 }

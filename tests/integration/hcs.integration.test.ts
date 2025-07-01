@@ -31,7 +31,7 @@ async function initializeTestKit(): Promise<HederaAgentKit> {
     );
   if (!openAIApiKey)
     throw new Error('OpenAI API key missing from environment variables.');
-  const signer = new ServerSigner(accountId, privateKey, 'testnet');
+  const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
   const kit = new HederaAgentKit(signer, { appConfig: { openAIApiKey } });
   await kit.initialize();
   return kit;

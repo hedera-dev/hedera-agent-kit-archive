@@ -32,7 +32,7 @@ export async function initializeTestKit(): Promise<HederaAgentKit> {
     );
   }
 
-  const signer = new ServerSigner(accountId, privateKey, 'testnet');
+  const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
 
   const kit = new HederaAgentKit(signer, { appConfig: { openAIApiKey } }, 'provideBytes', undefined, true, undefined, DEFAULT_MODEL); 
   await kit.initialize();

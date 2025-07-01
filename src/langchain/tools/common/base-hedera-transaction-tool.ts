@@ -240,7 +240,7 @@ export abstract class BaseHederaTransactionTool<
     metaOpts: HederaTransactionMetaOptions | undefined,
     allNotes: string[]
   ): Promise<string> {
-    const execOptions = this._buildScheduleOptions(metaOpts);
+    const execOptions = await this._buildScheduleOptions(metaOpts);
 
     this.logger.info(
       `Executing transaction directly (mode: directExecution): ${this.name}`
@@ -306,7 +306,7 @@ export abstract class BaseHederaTransactionTool<
       `Preparing scheduled transaction (mode: provideBytes, schedule: true): ${this.name}`
     );
 
-    const execOptions = this._buildScheduleOptions(metaOpts, true);
+    const execOptions = await this._buildScheduleOptions(metaOpts, true);
     execOptions.schedulePayerAccountId = this.hederaKit.signer.getAccountId();
 
     const scheduleCreateResult = await builder.execute(execOptions);
@@ -363,10 +363,10 @@ export abstract class BaseHederaTransactionTool<
   /**
    * Build schedule options from meta options
    */
-  private _buildScheduleOptions(
+  private async _buildScheduleOptions(
     metaOptions?: HederaTransactionMetaOptions,
     forceSchedule = false
-  ): ScheduleExecutionOptions {
+  ): Promise<ScheduleExecutionOptions> {
     const options: ScheduleExecutionOptions = {};
 
     if (forceSchedule || metaOptions?.schedule) {
@@ -388,7 +388,7 @@ export abstract class BaseHederaTransactionTool<
 
       if (metaOptions?.scheduleAdminKey) {
         try {
-          const parsedKey = parseKey(metaOptions.scheduleAdminKey);
+          const parsedKey = await parseKey(this.hederaKit.mirrorNode, this.hederaKit.userAccountId!, metaOptions.scheduleAdminKey);
           if (parsedKey) options.scheduleAdminKey = parsedKey;
         } catch {
           this.logger.warn('Invalid scheduleAdminKey');

@@ -125,7 +125,7 @@ async function main() {
       'HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY must be set in .env'
     );
 
-  const agentSigner = new ServerSigner(operatorId, operatorKey, network);
+  const agentSigner = await ServerSigner.create(operatorId, operatorKey, network);
   const conversationalAgent = new HederaConversationalAgent(agentSigner, {
     operationalMode: 'provideBytes',
     userAccountId: userAccountId,
@@ -242,7 +242,7 @@ if (response.transactionBytes) {
   console.log('Transaction executed:', receipt);
 
   // Option 2: If you have the user's key in your app
-  const userSigner = new ServerSigner(userAccountId, userPrivateKey, network);
+  const userSigner = await ServerSigner.create(userAccountId, userPrivateKey, network);
   const txBytes = Buffer.from(response.transactionBytes, 'base64');
   const transaction = Transaction.fromBytes(txBytes);
   const signedTx = await transaction.sign(userSigner.getOperatorPrivateKey());
@@ -584,7 +584,7 @@ import { HederaAgentKit, ServerSigner } from 'hedera-agent-kit';
 import { Hbar } from '@hashgraph/sdk';
 
 async function useKitDirectly() {
-  const signer = new ServerSigner(
+  const signer = await ServerSigner.create(
     process.env.HEDERA_ACCOUNT_ID!,
     process.env.HEDERA_PRIVATE_KEY!,
     'testnet'
@@ -810,7 +810,7 @@ Extend the agent's capabilities with custom plugins:
 import { HederaAgentKit, ServerSigner } from 'hedera-agent-kit';
 
 async function useCustomPlugin() {
-  const signer = new ServerSigner(
+  const signer = await ServerSigner.create(
     process.env.HEDERA_ACCOUNT_ID!,
     process.env.HEDERA_PRIVATE_KEY!,
     'testnet'

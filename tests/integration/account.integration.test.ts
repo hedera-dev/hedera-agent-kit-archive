@@ -53,7 +53,7 @@ async function initializeTestKit(): Promise<HederaAgentKit> {
       'Missing HEDERA_ACCOUNT_ID, HEDERA_PRIVATE_KEY, or OPENAI_API_KEY in environment variables.'
     );
   }
-  const signer = new ServerSigner(accountId, privateKey, 'testnet');
+  const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
   const kit = new HederaAgentKit(signer, { appConfig: { openAIApiKey } });
   await kit.initialize();
   return kit;
@@ -202,7 +202,7 @@ describe('Hedera Account Service Tools Integration Tests', () => {
     );
     recipientAccount = recipientDetails.accountId;
     recipientAccountPrivateKey = recipientDetails.privateKey;
-    secondaryAccountSigner = new ServerSigner(
+    secondaryAccountSigner = await ServerSigner.create(
       recipientAccount,
       recipientAccountPrivateKey,
       kit.network

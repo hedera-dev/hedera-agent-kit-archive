@@ -32,7 +32,7 @@ import {
 } from '../../types';
 import { BaseServiceBuilder } from '../base-service-builder';
 import { HederaAgentKit } from '../../agent/agent';
-import { detectKeyTypeFromString } from '../../utils/key-type-detector';
+import { detectKeyTypeFromMirrorNode } from '../../utils/key-type-detector';
 
 const DEFAULT_ACCOUNT_AUTORENEW_PERIOD_SECONDS = 7776000;
 
@@ -50,7 +50,7 @@ export class AccountBuilder extends BaseServiceBuilder {
    * @returns {this} The builder instance for chaining.
    * @throws {Error} If required parameters are missing.
    */
-  public createAccount(params: CreateAccountParams): this {
+  public async createAccount(params: CreateAccountParams): Promise<this> {
     this.clearNotes();
     const transaction = new AccountCreateTransaction();
     let autoRenewPeriodSetByUser = false;
@@ -61,7 +61,7 @@ export class AccountBuilder extends BaseServiceBuilder {
           'Received null for key in createAccount. A key or alias is typically required.'
         );
       } else if (typeof params.key === 'string') {
-        const keyDetection = detectKeyTypeFromString(params.key);
+        const keyDetection = await detectKeyTypeFromMirrorNode(this.kit.mirrorNode, this.kit.userAccountId! , params.key);
         transaction.setKeyWithoutAlias(keyDetection.privateKey);
       } else {
         transaction.setKeyWithoutAlias(params.key as Key);
@@ -303,7 +303,7 @@ export class AccountBuilder extends BaseServiceBuilder {
    * @returns {this} The builder instance for chaining.
    * @throws {Error} If accountIdToUpdate is missing or key parsing fails.
    */
-  public updateAccount(params: UpdateAccountParams): this {
+  public async updateAccount(params: UpdateAccountParams): Promise<this> {
     if (!params.accountIdToUpdate) {
       throw new Error('accountIdToUpdate is required for updating an account.');
     }
@@ -316,7 +316,7 @@ export class AccountBuilder extends BaseServiceBuilder {
         this.logger.warn('Received null for key, skipping update for key.');
       } else if (typeof params.key === 'string') {
         try {
-          const keyDetection = detectKeyTypeFromString(params.key);
+          const keyDetection = await detectKeyTypeFromMirrorNode(this.kit.mirrorNode, this.kit.userAccountId!, params.key);
           transaction.setKey(keyDetection.privateKey);
         } catch (e) {
           this.logger.error(`Failed to parse key string: ${params.key}`, e);

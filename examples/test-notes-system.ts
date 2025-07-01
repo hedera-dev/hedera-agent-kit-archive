@@ -37,7 +37,7 @@ async function testNotes(): Promise<void> {
     );
   }
 
-  const agentSigner = new ServerSigner(operatorId, operatorKey, network);
+  const agentSigner = await ServerSigner.create(operatorId, operatorKey, network);
 
   const conversationalAgent = new HederaConversationalAgent(agentSigner, {
     operationalMode: 'provideBytes',

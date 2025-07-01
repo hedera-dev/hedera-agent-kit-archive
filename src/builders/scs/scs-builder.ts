@@ -8,6 +8,7 @@ import {
   TransactionId,
   ContractCallQuery,
   ContractFunctionResult,
+  PublicKey,
 } from '@hashgraph/sdk';
 import { Buffer } from 'buffer';
 import {
@@ -19,7 +20,7 @@ import {
 } from '../../types';
 import { BaseServiceBuilder } from '../base-service-builder';
 import { HederaAgentKit } from '../../agent/agent';
-import { detectKeyTypeFromString } from '../../utils/key-type-detector';
+import { detectKeyTypeFromMirrorNode } from '../../utils/key-type-detector';
 
 const DEFAULT_CONTRACT_AUTORENEW_PERIOD_SECONDS = 7776000;
 
@@ -36,7 +37,7 @@ export class ScsBuilder extends BaseServiceBuilder {
    * @returns {this}
    * @throws {Error}
    */
-  public createContract(params: CreateContractParams): this {
+  public async createContract(params: CreateContractParams): Promise<this> {
     this.clearNotes();
     const transaction = new ContractCreateTransaction();
 
@@ -56,7 +57,7 @@ export class ScsBuilder extends BaseServiceBuilder {
 
     if (params.adminKey) {
       if (typeof params.adminKey === 'string') {
-        const keyDetection = detectKeyTypeFromString(params.adminKey);
+        const keyDetection = await detectKeyTypeFromMirrorNode(this.kit.mirrorNode, this.kit.userAccountId!, params.adminKey);
         transaction.setAdminKey(keyDetection.privateKey);
       } else {
         transaction.setAdminKey(params.adminKey);
@@ -160,7 +161,7 @@ export class ScsBuilder extends BaseServiceBuilder {
    * @returns {this}
    * @throws {Error}
    */
-  public updateContract(params: UpdateContractParams): this {
+  public async updateContract(params: UpdateContractParams): Promise<this> {
     this.clearNotes();
     if (params.contractId === undefined) {
       throw new Error('Contract ID is required to update a contract.');
@@ -171,8 +172,7 @@ export class ScsBuilder extends BaseServiceBuilder {
 
     if (params.adminKey) {
       if (typeof params.adminKey === 'string') {
-        const keyDetection = detectKeyTypeFromString(params.adminKey);
-        transaction.setAdminKey(keyDetection.privateKey);
+        transaction.setAdminKey(PublicKey.fromString(params.adminKey));
       } else {
         transaction.setAdminKey(params.adminKey);
       }

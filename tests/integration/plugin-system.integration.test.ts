@@ -80,7 +80,7 @@ async function initializeTestKit(pluginConfig?: PluginConfig): Promise<HederaAge
     throw new Error('OpenAI API key missing from environment variables.');
   }
 
-  const signer = new ServerSigner(accountId, privateKey, 'testnet');
+  const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
   const kit = new HederaAgentKit(signer, pluginConfig);
   await kit.initialize();
   return kit;
@@ -171,7 +171,7 @@ describe('Plugin System Integration Tests', () => {
         throw new Error('Required environment variables missing');
       }
 
-      const signer = new ServerSigner(accountId, privateKey, 'testnet');
+      const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
       conversationalAgent = new HederaConversationalAgent(signer, {
         pluginConfig,
         openAIApiKey,

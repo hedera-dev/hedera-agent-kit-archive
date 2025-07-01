@@ -71,7 +71,7 @@ async function initializeTestKit(): Promise<HederaAgentKit> {
   if (!openAIApiKey)
     throw new Error('OpenAI API key missing from environment variables.');
 
-  const signer = new ServerSigner(accountId, privateKey, 'testnet');
+  const signer = await ServerSigner.create(accountId, privateKey, 'testnet');
   const kit = new HederaAgentKit(signer, { appConfig: { openAIApiKey } });
   await kit.initialize();
   return kit;
@@ -271,7 +271,7 @@ describe('Hedera HTS Tools Integration Tests', () => {
       sharedSecondaryAccountId = accountDetails.accountId;
       sharedSecondaryAccountPrivateKey = accountDetails.privateKey;
       // Create a ServerSigner for this new account
-      secondaryAccountSigner = new ServerSigner(
+      secondaryAccountSigner = await ServerSigner.create(
         sharedSecondaryAccountId,
         sharedSecondaryAccountPrivateKey,
         kit.network
@@ -1685,7 +1685,7 @@ describe('Hedera HTS Tools Integration Tests', () => {
       const acc1Details = await createNewTestAccount(kit, 10); // 10 HBAR initial balance
       recipient1ForAirdrop = acc1Details.accountId;
       recipient1Key = acc1Details.privateKey;
-      recipient1Signer = new ServerSigner(
+      recipient1Signer = await ServerSigner.create(
         recipient1ForAirdrop,
         recipient1Key,
         kit.network
@@ -1697,7 +1697,7 @@ describe('Hedera HTS Tools Integration Tests', () => {
       const acc2Details = await createNewTestAccount(kit, 10);
       recipient2ForAirdrop = acc2Details.accountId;
       recipient2Key = acc2Details.privateKey;
-      recipient2Signer = new ServerSigner(
+      recipient2Signer = await ServerSigner.create(
         recipient2ForAirdrop,
         recipient2Key,
         kit.network

@@ -14,7 +14,7 @@ import {
 import { Buffer } from 'buffer';
 import { AbstractSigner } from '../signer/abstract-signer';
 import { Logger } from '../utils/logger';
-import { detectKeyTypeFromString } from '../utils/key-type-detector';
+import { detectKeyTypeFromMirrorNode } from '../utils/key-type-detector';
 import type { HederaAgentKit } from '../agent/agent';
 
 /**
@@ -439,7 +439,7 @@ export abstract class BaseServiceBuilder {
             '[BaseServiceBuilder.parseKey] Attempting to parse key string as PrivateKey to derive PublicKey. This is generally not recommended for public-facing keys.',
             { error: error.message }
           );
-          const keyDetection = detectKeyTypeFromString(keyInput);
+          const keyDetection = await detectKeyTypeFromMirrorNode(this.kit.mirrorNode, this.kit.userAccountId!, keyInput);
           return keyDetection.privateKey;
         } catch (e2: unknown) {
           const error2 = e2 as Error;

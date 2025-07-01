@@ -23,7 +23,7 @@ async function exampleWithCustomMirrorNode(): Promise<void> {
   };
 
   // Initialize signer
-  const signer = new ServerSigner(
+  const signer = await ServerSigner.create(
     '0.0.12345',
     'your-private-key-here',
     'mainnet'

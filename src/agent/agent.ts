@@ -105,7 +105,7 @@ export class HederaAgentKit {
     this.loadedPlugins = [];
     this.aggregatedTools = [];
     this.operationalMode = initialOperationalMode;
-    this.userAccountId = userAccountId;
+    this.userAccountId = userAccountId || signer.getAccountId().toString();
     this.scheduleUserTransactionsInBytesMode =
       scheduleUserTransactionsInBytesMode;
     this.modelCapability = modelCapability;

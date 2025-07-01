@@ -5,7 +5,7 @@ import { ModelCapability } from '../../src/types/model-capability';
 
 describe('Model Capability Configuration', () => {
   it('should configure model capability correctly for GPT-4o-mini', async () => {
-    const signer = new ServerSigner(
+    const signer = await ServerSigner.create(
       process.env.HEDERA_ACCOUNT_ID!,
       process.env.HEDERA_PRIVATE_KEY!,
       'testnet'
@@ -22,7 +22,7 @@ describe('Model Capability Configuration', () => {
   });
 
   it('should configure model capability correctly for GPT-4-turbo', async () => {
-    const signer = new ServerSigner(
+    const signer = await ServerSigner.create(
       process.env.HEDERA_ACCOUNT_ID!,
       process.env.HEDERA_PRIVATE_KEY!,
       'testnet'
@@ -39,7 +39,7 @@ describe('Model Capability Configuration', () => {
   });
 
   it('should load all tools by default', async () => {
-    const signer = new ServerSigner(
+    const signer = await ServerSigner.create(
       process.env.HEDERA_ACCOUNT_ID!,
       process.env.HEDERA_PRIVATE_KEY!,
       'testnet'
