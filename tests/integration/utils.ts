@@ -7,7 +7,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import dotenv from 'dotenv';
 import path from 'path';
 import { ChainValues } from '@langchain/core/utils/types';
-import { ContractCreateFlow } from '@hashgraph/sdk';
+import { AccountCreateTransaction, AccountId, Client, ContractCreateFlow, Hbar, PrivateKey, PublicKey, Transaction, TransactionReceipt } from '@hashgraph/sdk';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -108,7 +108,7 @@ export async function createTestAgentExecutor(
   openAIApiKey: string
 ): Promise<AgentExecutor> {
   const tools = [tool];
-  
+
   const llm = new ChatOpenAI({
     apiKey: openAIApiKey,
     modelName: DEFAULT_MODEL,
@@ -208,4 +208,78 @@ export async function deployMockTestContract(
   const contractCreateRx = await contractCreateTx.getReceipt(signer.getClient());
   return contractCreateRx.contractId?.toString() || '';
 }
- 
+
+/**
+ * Creates a new Hedera account with the given initial balance, signed and paid by the provided payer.
+ * @param client - The Hedera Client instance (connected to network and payer account).
+ * @param payerSigner - ServerSigner with operator credentials for paying transaction fees.
+ * @param initialBalanceHbar - Initial account balance in HBAR.
+ * @returns An object with the new accountId, privateKey, and publicKey.
+ * @throws Error if the account creation fails.
+ */
+export async function createNewHederaAccount(
+  client: Client,
+  payerSigner: ServerSigner,
+  initialBalanceHbar: number,
+  options?: { maxAutomaticTokenAssociations?: number }
+): Promise<{
+  accountId: AccountId;
+  privateKey: PrivateKey;
+  publicKey: PublicKey;
+}> {
+  const newPrivateKey = PrivateKey.generateED25519();
+  const newPublicKey = newPrivateKey.publicKey;
+  const transaction = new AccountCreateTransaction()
+    .setKeyWithoutAlias(newPublicKey)
+    .setInitialBalance(new Hbar(initialBalanceHbar))
+    .setNodeAccountIds([new AccountId(3)]);
+
+  if (options?.maxAutomaticTokenAssociations !== undefined) {
+    transaction.setMaxAutomaticTokenAssociations(options.maxAutomaticTokenAssociations);
+  }
+
+  transaction.freezeWith(client);
+  const signedTx = await transaction.sign(payerSigner.getOperatorPrivateKey());
+  const txResponse = await signedTx.execute(client);
+  const receipt = await txResponse.getReceipt(client);
+  if (!receipt.accountId) {
+    throw new Error('Failed to create new Hedera account: accountId is null.');
+  }
+  console.log(
+    `Test utility created new account: ${receipt.accountId.toString()} with public key ${newPublicKey.toStringDer()}`
+  ); // Log public key
+  return {
+    accountId: receipt.accountId,
+    privateKey: newPrivateKey,
+    publicKey: newPublicKey,
+  }; // Return publicKey
+}
+
+/**
+ * Signs a base64-encoded Hedera transaction with the provided private key and executes it on the given client.
+ * 
+ * @param transactionBytesBase64 - Transaction bytes in base64 format (from AgentResponse.transactionBytes).
+ * @param privateKey - The PrivateKey used to sign the transaction.
+ * @param client - An initialized Hedera Client instance.
+ * @returns The TransactionReceipt of the executed transaction.
+ * @throws Error if the transaction cannot be signed or executed.
+ */
+export async function signAndExecuteTransaction(
+  transactionBytesBase64: string | undefined,
+  privateKey: PrivateKey,
+  client: Client
+): Promise<TransactionReceipt> {
+  if (!transactionBytesBase64) {
+    throw new Error("[signAndExecuteTransaction]: transactionBytesBase64 is required");
+  }
+
+  const txBytes = Buffer.from(transactionBytesBase64, "base64");
+  const tx = Transaction.fromBytes(txBytes);
+  tx.freezeWith(client);
+
+  const signedTx = await tx.sign(privateKey);
+  const res = await signedTx.execute(client);
+  const receipt = await res.getReceipt(client);
+
+  return receipt;
+}

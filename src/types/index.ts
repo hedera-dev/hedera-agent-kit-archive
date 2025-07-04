@@ -450,7 +450,6 @@ export interface MintNFTParams {
   metadata: Uint8Array[];
   /** Optional. The batch size for minting transactions if many NFTs are minted. Defaults to 10. */
   batchSize?: number;
-  nftId: NftId;
   senderAccountId: string | AccountId;
   receiverAccountId: string | AccountId;
   isApproved?: boolean;
