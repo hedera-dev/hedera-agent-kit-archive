@@ -449,12 +449,12 @@ export interface MintNFTParams {
   /** An array of metadata for each NFT to be minted. Each Uint8Array is one NFT's metadata (max 100 bytes each). */
   metadata: Uint8Array[];
   /** Optional. The batch size for minting transactions if many NFTs are minted. Defaults to 10. */
-  batchSize?: number;
-  nftId: NftId;
-  senderAccountId: string | AccountId;
-  receiverAccountId: string | AccountId;
-  isApproved?: boolean;
-  memo?: string;
+  batchSize?: number | undefined;
+  nftId?: NftId | undefined;
+  senderAccountId?: string | AccountId | undefined;
+  receiverAccountId?: string | AccountId | undefined;
+  isApproved?: boolean | undefined;
+  memo?: string | undefined;
 }
 
 /**

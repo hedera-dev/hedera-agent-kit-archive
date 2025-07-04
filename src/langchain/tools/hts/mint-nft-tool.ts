@@ -4,8 +4,9 @@ import {
   BaseHederaTransactionTool,
   BaseHederaTransactionToolParams,
 } from '../common/base-hedera-transaction-tool';
-import { BaseServiceBuilder } from '../../../builders/base-service-builder';
-import { HtsBuilder } from '../../../builders/hts/hts-builder';
+import { BaseServiceBuilder } from '../../../builders';
+import { HtsBuilder } from '../../../builders';
+import { Buffer } from "buffer";
 
 const MintNFTZodSchemaCore = z.object({
   tokenId: z
@@ -47,8 +48,15 @@ export class HederaMintNftTool extends BaseHederaTransactionTool<
     builder: BaseServiceBuilder,
     specificArgs: z.infer<typeof MintNFTZodSchemaCore>
   ): Promise<void> {
+    const parsedParams: MintNFTParams = {
+      tokenId: specificArgs.tokenId,
+      metadata: specificArgs.metadata.map((m) => {
+        return Buffer.from(m, 'utf8');
+      }),
+      batchSize: specificArgs.batchSize,
+    }
     await (builder as HtsBuilder).mintNonFungibleToken(
-      specificArgs as unknown as MintNFTParams
+      parsedParams
     );
   }
 }

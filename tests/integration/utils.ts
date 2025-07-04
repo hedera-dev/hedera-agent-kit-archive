@@ -1,5 +1,5 @@
 import { HederaAgentKit } from '../../src/agent';
-import { ServerSigner } from '../../src/signer/server-signer';
+import { AbstractSigner, ServerSigner } from '../../src';
 import { StructuredTool } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
@@ -7,7 +7,18 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import dotenv from 'dotenv';
 import path from 'path';
 import { ChainValues } from '@langchain/core/utils/types';
-import { ContractCreateFlow } from '@hashgraph/sdk';
+import {
+  TokenCreateTransaction,
+  TokenType,
+  TokenSupplyType,
+  TokenAssociateTransaction,
+  TokenMintTransaction,
+  TokenId,
+  AccountId,
+  TransactionReceipt,
+  PublicKey as SDKPublicKey,
+  ContractCreateFlow, AccountInfoQuery, TokenNftInfoQuery, NftId, AccountBalanceQuery
+} from '@hashgraph/sdk';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -208,4 +219,195 @@ export async function deployMockTestContract(
   const contractCreateRx = await contractCreateTx.getReceipt(signer.getClient());
   return contractCreateRx.contractId?.toString() || '';
 }
- 
+
+
+// === HTS HELPER METHODS ===
+
+// Helper method to create a fungible token
+export async function createFungibleToken(
+  signer: ServerSigner,
+  options: {
+    name?: string;
+    symbol?: string;
+    initialSupply?: number;
+    decimals?: number;
+    maxSupply?: number;
+    treasuryAccountId: AccountId;
+    supplyType?: TokenSupplyType;
+    adminKey?: SDKPublicKey;
+    supplyKey?: SDKPublicKey;
+    wipeKey?: SDKPublicKey;
+    pauseKey?: SDKPublicKey;
+    freezeKey?: SDKPublicKey;
+    kycKey?: SDKPublicKey;
+  }
+): Promise<TokenId> {
+  const tokenName = options.name || generateUniqueName('FT');
+  const tokenSymbol = options.symbol || generateUniqueName('FT');
+  const initialSupply = options.initialSupply || 1000;
+  const decimals = options.decimals || 0;
+  const supplyType = options.supplyType || TokenSupplyType.Infinite;
+
+  let tx = new TokenCreateTransaction()
+    .setTokenName(tokenName)
+    .setTokenSymbol(tokenSymbol)
+    .setTokenType(TokenType.FungibleCommon)
+    .setInitialSupply(initialSupply)
+    .setDecimals(decimals)
+    .setSupplyType(supplyType)
+    .setTreasuryAccountId(options.treasuryAccountId);
+
+  // Set optional keys
+  if (options.adminKey) tx = tx.setAdminKey(options.adminKey);
+  if (options.supplyKey) tx = tx.setSupplyKey(options.supplyKey);
+  if (options.wipeKey) tx = tx.setWipeKey(options.wipeKey);
+  if (options.pauseKey) tx = tx.setPauseKey(options.pauseKey);
+  if (options.freezeKey) tx = tx.setFreezeKey(options.freezeKey);
+  if (options.kycKey) tx = tx.setKycKey(options.kycKey);
+
+  // Set max supply if finite
+  if (supplyType === TokenSupplyType.Finite && options.maxSupply) {
+    tx = tx.setMaxSupply(options.maxSupply);
+  }
+
+  const frozenTx = tx.freezeWith(signer.getClient());
+  const receipt = await signer.signAndExecuteTransaction(frozenTx);
+
+  if (!receipt.tokenId) {
+    throw new Error('Failed to create fungible token: tokenId is null in receipt');
+  }
+
+  return receipt.tokenId;
+}
+
+// Helper method to create an NFT collection
+export async function createNftCollection(
+  signer: ServerSigner,
+  options: {
+    name?: string;
+    symbol?: string;
+    maxSupply?: number;
+    treasuryAccountId: AccountId;
+    supplyType?: TokenSupplyType;
+    adminKey?: SDKPublicKey;
+    supplyKey?: SDKPublicKey;
+    wipeKey?: SDKPublicKey;
+    pauseKey?: SDKPublicKey;
+    freezeKey?: SDKPublicKey;
+    kycKey?: SDKPublicKey;
+  }
+): Promise<TokenId> {
+  const tokenName = options.name || generateUniqueName('NFT');
+  const tokenSymbol = options.symbol || generateUniqueName('NFT');
+  const maxSupply = options.maxSupply || 100;
+  const supplyType = options.supplyType || TokenSupplyType.Finite;
+
+  let tx = new TokenCreateTransaction()
+    .setTokenName(tokenName)
+    .setTokenSymbol(tokenSymbol)
+    .setTokenType(TokenType.NonFungibleUnique)
+    .setMaxSupply(maxSupply)
+    .setSupplyType(supplyType)
+    .setTreasuryAccountId(options.treasuryAccountId);
+
+  // Set optional keys
+  if (options.adminKey) tx = tx.setAdminKey(options.adminKey);
+  if (options.supplyKey) tx = tx.setSupplyKey(options.supplyKey);
+  if (options.wipeKey) tx = tx.setWipeKey(options.wipeKey);
+  if (options.pauseKey) tx = tx.setPauseKey(options.pauseKey);
+  if (options.freezeKey) tx = tx.setFreezeKey(options.freezeKey);
+  if (options.kycKey) tx = tx.setKycKey(options.kycKey);
+
+  const frozenTx = tx.freezeWith(signer.getClient());
+  const receipt = await signer.signAndExecuteTransaction(frozenTx);
+
+  if (!receipt.tokenId) {
+    throw new Error('Failed to create NFT collection: tokenId is null in receipt');
+  }
+
+  return receipt.tokenId;
+}
+
+// Helper method to associate tokens with an account
+export async function associateTokensWithAccount(
+  signer: ServerSigner,
+  accountId: AccountId,
+  tokenIds: TokenId[]
+): Promise<TransactionReceipt> {
+  const associateTx = new TokenAssociateTransaction()
+    .setAccountId(accountId)
+    .setTokenIds(tokenIds)
+    .freezeWith(signer.getClient());
+
+  return await signer.signAndExecuteTransaction(associateTx);
+}
+
+// Helper method to mint fungible tokens
+export async function mintFt(
+  signer: ServerSigner,
+  tokenId: TokenId,
+  amount: number
+): Promise<TransactionReceipt> {
+  const mintTx = new TokenMintTransaction()
+    .setTokenId(tokenId)
+    .setAmount(amount)
+    .freezeWith(signer.getClient());
+
+  return await signer.signAndExecuteTransaction(mintTx);
+}
+
+// Helper method to mint NFTs
+export async function mintNft(
+  signer: ServerSigner,
+  tokenId: TokenId,
+  metadata: string | Uint8Array
+): Promise<{ receipt: TransactionReceipt; serial: number }> {
+  const metadataBytes = typeof metadata === 'string'
+    ? new TextEncoder().encode(metadata)
+    : metadata;
+
+  const mintTx = new TokenMintTransaction()
+    .setTokenId(tokenId)
+    .setMetadata([metadataBytes])
+    .freezeWith(signer.getClient());
+
+  const receipt = await signer.signAndExecuteTransaction(mintTx);
+  const serial = receipt.serials[0].toNumber();
+
+  return { receipt, serial };
+}
+
+// helper method for fetching balances with use of AccountInfoQuery
+export async function getTokenBalance(accountId: AccountId | string, tokenId: TokenId | string, signer: AbstractSigner): Promise<number> {
+  const accountInfo = await new AccountInfoQuery()
+    .setAccountId(accountId)
+    .execute(signer.getClient());
+
+  const tokenRel = accountInfo.tokenRelationships.get(tokenId.toString());
+  if (!tokenRel) throw new Error(`Token relationship not found for token ${tokenId}`);
+
+  return tokenRel.balance.toNumber();
+}
+
+export async function getNftOwner(
+  tokenId: TokenId | string,
+  serial: number,
+  signer: AbstractSigner
+): Promise<AccountId> {
+  if (!(tokenId instanceof TokenId)) {
+    tokenId = TokenId.fromString(tokenId);
+  }
+
+  const nftInfo = await new TokenNftInfoQuery()
+    .setNftId(new NftId(tokenId, serial))
+    .execute(signer.getClient());
+
+  return nftInfo[0].accountId;
+}
+
+export function getTokenBalanceQuery(accountId: string, tokenId: TokenId, signer: AbstractSigner): Promise<number> {
+  return new AccountBalanceQuery()
+    .setAccountId(accountId)
+    .execute(signer.getClient())
+    .then(balance => balance.tokens?._map.get(tokenId.toString())?.toNumber() ?? 0);
+}

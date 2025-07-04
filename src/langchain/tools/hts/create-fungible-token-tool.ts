@@ -5,8 +5,8 @@ import {
   BaseHederaTransactionTool,
   BaseHederaTransactionToolParams,
 } from '../common/base-hedera-transaction-tool';
-import { BaseServiceBuilder } from '../../../builders/base-service-builder';
-import { HtsBuilder } from '../../../builders/hts/hts-builder';
+import { BaseServiceBuilder } from '../../../builders';
+import { HtsBuilder } from '../../../builders';
 import { SERIALIZED_KEY_DESCRIPTION, FEE_COLLECTOR_DESCRIPTION } from './hts-tool-utils';
 
 const FixedFeeInputSchema = z.object({
@@ -91,7 +91,7 @@ const FTCreateZodSchemaCore = z.object({
     .string()
     .optional()
     .describe(
-      `Optional. Admin key (${SERIALIZED_KEY_DESCRIPTION}`
+      `Optional. Admin key (${SERIALIZED_KEY_DESCRIPTION}. Required for token to be mutable.`
     ),
   kycKey: z
     .string()
