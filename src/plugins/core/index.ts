@@ -3,8 +3,10 @@ import HederaHCSPlugin from './HederaHCSPlugin';
 import HederaAccountPlugin from './HederaAccountPlugin';
 import HederaSCSPlugin from './HederaSCSPlugin';
 import HederaNetworkPlugin from './HederaNetworkPlugin';
+import { BasePlugin } from '../BasePlugin';
+import { GenericPluginContext } from '../PluginInterface';
 
-export function getAllHederaCorePlugins() {
+export function getAllHederaCorePlugins(): BasePlugin<GenericPluginContext>[] {
   return [
     new HederaHTSPlugin(),
     new HederaHCSPlugin(),
@@ -20,4 +22,4 @@ export {
   HederaAccountPlugin,
   HederaSCSPlugin,
   HederaNetworkPlugin,
-}; 
+};
