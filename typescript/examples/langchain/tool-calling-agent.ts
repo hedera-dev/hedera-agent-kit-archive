@@ -113,4 +113,7 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch(err => {
   console.error('Fatal error during CLI bootstrap:', err);
+  process.exit(1);
+}).then(() => {
+  process.exit(0);
 });
