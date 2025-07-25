@@ -26,7 +26,7 @@ These tools provided by the toolkit enable you to complete (free) queries agains
 | Tool Name                      | Description                           | Usage                                       |
 | ------------------------------ | ------------------------------------- | --------------------------------------------------- |
 | `get-account-query`| Returns comprehensive account information for a given Hedera account | Provide an account ID to query |
-| `get-hbar-balance-query`| Returns the HBAR balance for a given Hedera account in tinybars| Requires a Hedera account ID to query (uses context operator account if not specified)|
+| `get-hbar-balance-query`| Returns the HBAR balance for a given Hedera account | Requires a Hedera account ID to query (uses context operator account if not specified)|
 | `get-account-token-balances-query`| Returns token balances for a Hedera acocunt | rovide the account ID to query (optional - uses context account if not provided). Optionally, provide a specific token ID to query|
 | `get-topic-messages-query`| Returns messages for a given Hedera Consensus Service (HCS) topic | Provide the topic ID to query (required). Optionally, provide start time, end time, and limit for message filtering|
 <!-- | `tool-name`| Description of what Tool Does | How to use| -->

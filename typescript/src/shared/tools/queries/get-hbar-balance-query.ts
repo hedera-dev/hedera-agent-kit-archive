@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 import { getMirrornodeService } from '@/shared/hedera-utils/mirrornode/hedera-mirrornode-utils';
 import HederaParameterNormaliser from '@/shared/hedera-utils/hedera-parameter-normaliser';
 import { PromptGenerator } from '@/shared/utils/prompt-generator';
+import { toHBar } from '@/shared/hedera-utils/hbar-conversion-utils';
 
 export const getHbarBalanceQueryPrompt = (context: Context = {}) => {
   const contextSnippet = PromptGenerator.getContextSnippet(context);
@@ -16,7 +17,7 @@ export const getHbarBalanceQueryPrompt = (context: Context = {}) => {
   return `
 ${contextSnippet}
 
-This tool will return the HBAR balance in tinybar for a given Hedera account.
+This tool will return the HBAR balance for a given Hedera account.
 
 Parameters:
 - ${accountDesc}
@@ -39,7 +40,7 @@ export const getHbarBalanceQuery = async (
     const balance: BigNumber = await mirrornodeService.getAccountHBarBalance(
       normalisedParams.accountId,
     );
-    return { accountId: normalisedParams.accountId, hbarBalance: balance.toString() };
+    return { accountId: normalisedParams.accountId, hbarBalance: toHBar(balance).toString() };
   } catch (error) {
     if (error instanceof Error) {
       return error.message;
