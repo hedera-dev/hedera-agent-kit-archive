@@ -1,0 +1,95 @@
+# Rule: Generating a Github Issue for a New Feature
+### Context for Human User: 
+To use this rule, use a command like this in the Cursor LLM Interface:
+"I need to create a GitHub issue. Please use the generate-issue rule from .cursor/rules/generate-issue.mdc and walk me through the process step by step."
+
+### Context for AI Assistant: 
+Note that you should check whether or not the github CLI is installed on the user's system. Ask the user to run the command `gh --version` to check if it is installed. If it is not installed, you should ask the user to install it. Also, make sure you know what branch you are on. Ask the user to let you run the command `git branch --show-current` to check what branch you are on, then ask the user to run a quick `git diff` between the current branch and the main branch to see what changes have been made.
+
+# Goal
+To guide an AI assistant in creating a detailed GitHub issue that:
+- Lists related file changes with descriptions
+- Provides a descriptive title
+- Includes user story and acceptance criteria
+- Generates appropriate labels and assignees
+
+## Output
+
+- **Format:** Markdown CLI command to generate a Github issue
+- **Command Structure:** 
+```bash
+gh issue create --title "Issue title" --body "part1 part2 part3" --assignee @githubusername --label "label1,label2,label3" --project "Project Name" -R hedera-dev/hedera-agent-kit  
+``` 
+
+## Process
+1. Collect Issue Details:
+* Ask: "What is a good, descriptive title for this Issue?"
+* Ask: "Please provide a User Story in the format of: As a [user], * I would like to [action] so that I can [benefit]."
+* Use the title for the --title flag
+* Use the user story as part1 of the --body flag
+
+
+2. Analyze Changes:
+* Run git diff main to compare current branch with main
+* Create a bulleted list of all changed files for initial part2
+
+
+3. Review Each File:
+
+* For each changed file, ask: "Should the change to [filename] be included in the issue?". 
+* Wait for the response from the user before moving on to the next file. Wait for two responses, yes or no, and if yes, wait for them to provide a description.
+* If yes, ask: "Please provide a description of the change"
+* If no, skip to next file
+
+
+4. Update File List:
+
+* Update part2 with only included files and their descriptions
+
+
+5. Collect Acceptance Criteria:
+
+*  Ask: "Please provide acceptance criteria - list the measurable functionality created and expected behavior. You can use the format: The [functionality] should [expected-behavior] with [measurable-result].
+* Use response as part3 of the --body flag
+
+
+6. Generate Labels:
+
+* Ask: "What labels should be applied to this issue? (e.g., feature, enhancement, bug)"
+
+
+7.Final Assembly:
+
+* Combine all parts into the final gh issue create command
+
+
+## Output Format
+
+The generated task list _must_ follow this structure:
+
+```bash
+gh issue create --title "Issue Title" --body "part1 part2 part3" --assignee @githubusername --label "label1,label2,label3" -R hedera-dev/hedera-agent-kit
+```
+The Github issue will be created in the `hedera-dev/hedera-agent-kit` repository and be formatted as such:
+
+```markdown 
+## User Story
+[part1 - user story]
+
+## Files Changed
+[part2 - file list with descriptions]
+
+## Acceptance Criteria
+[part3 - acceptance criteria list]
+```
+Based on the output from the gh CLI, you should have an issue link that looks like `https://github.com/hedera-dev/hedera-agent-kit/issues/118`. Tell the user "Please go to the issue at [issue link] and assign it to the Hedera Agent Kit project and assign a status."
+
+Make sure the last thing in the LLM output is the Issue link and the instructions to assign it to the Hedera Agent Kit project and assign a status.
+
+
+## Interaction Model
+This process specifically takes responses from the user, and properly formats a CLI command to create a github issue. Each step should be completed, and saved in context as a part of the content for the final CLI command
+
+## Target Audience
+
+Assume the primary reader of the Issues will be a project manager, junior developer, or future developer trying to learn what specifically was implemented to use and document it.
