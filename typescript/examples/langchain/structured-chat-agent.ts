@@ -77,7 +77,7 @@ async function bootstrap(): Promise<void> {
     tools,
     memory,
     returnIntermediateSteps: false,
-  } as any);
+  });
 
   console.log('Hedera Agent CLI Chatbot — type "exit" to quit');
 
