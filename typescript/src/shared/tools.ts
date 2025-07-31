@@ -25,6 +25,7 @@ import getTopicMessagesQuery, {
   GET_TOPIC_MESSAGES_QUERY_TOOL,
 } from './tools/queries/get-topic-messages-query';
 import createTopicTool, { CREATE_TOPIC_TOOL } from './tools/consensus/create-topic';
+import transferERC20Tool, { TRANSFER_ERC20_TOOL } from './tools/erc20/transfer-erc20';
 
 export type Tool = {
   method: string;
@@ -45,6 +46,7 @@ const tools = (context: Context): Tool[] => [
   getAccountQuery(context),
   getAccountTokenBalancesQuery(context),
   getTopicMessagesQuery(context),
+  transferERC20Tool(context),
 ];
 
 export const hederaTools = {
@@ -58,6 +60,7 @@ export const hederaTools = {
   GET_ACCOUNT_QUERY_TOOL,
   GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
   GET_TOPIC_MESSAGES_QUERY_TOOL,
+  TRANSFER_ERC20_TOOL,
 };
 
 export default tools;
