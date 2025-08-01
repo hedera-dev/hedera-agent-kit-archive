@@ -4,6 +4,7 @@ import {
   TopicCreateTransaction,
   TopicMessageSubmitTransaction,
   TransferTransaction,
+  ContractExecuteTransaction,
   TokenMintTransaction,
 } from '@hashgraph/sdk';
 import {
@@ -19,6 +20,7 @@ import {
   createTopicParametersNormalised,
   submitTopicMessageParametersNormalised,
 } from '@/shared/parameter-schemas/hcs.zod';
+import { contractExecuteTransactionParametersNormalised } from '../parameter-schemas/hscs.zod';
 
 export default class HederaBuilder {
   static createFungibleToken(
@@ -51,6 +53,12 @@ export default class HederaBuilder {
     params: z.infer<ReturnType<typeof submitTopicMessageParametersNormalised>>,
   ) {
     return new TopicMessageSubmitTransaction(params);
+  }
+
+  static executeTransaction(
+    params: z.infer<ReturnType<typeof contractExecuteTransactionParametersNormalised>>,
+  ) {
+    return new ContractExecuteTransaction(params);
   }
 
   static mintFungibleToken(

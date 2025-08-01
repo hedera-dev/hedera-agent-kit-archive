@@ -378,13 +378,15 @@ To request more functionality in the toolkit for:
 Please [open an issue](https://github.com/hedera-dev/hedera-agent-kit/issues/new?template=toolkit_feature_request.yml&labels=feature-request).
 
 **Available Tools**
-* Transfer HBAR
-* Create a Topic
-* Submit a message to a Topic
-* Create a Fungible Token
-* Create a Non-Fungible Token
-* Airdrop Fungible Tokens
-* Transfer Fungible Tokens
+
+- Transfer HBAR
+- Create a Topic
+- Submit a message to a Topic
+- Create a Fungible Token
+- Create an ERC20 Token
+- Create a Non-Fungible Token
+- Airdrop Fungible Tokens
+- Transfer Fungible Tokens
 
 See the implementation details in [docs/TOOLS.md](docs/TOOLS.md)
 

@@ -1,4 +1,4 @@
-import { HederaAIToolkit, AgentMode, hederaTools } from 'hedera-agent-kit';
+import { AgentMode, coreHTSPlugin, coreConsensusPlugin, coreQueriesPlugin, coreHTSPluginToolNames, coreQueriesPluginToolNames, coreConsensusPluginToolNames, HederaAIToolkit } from 'hedera-agent-kit';
 import { Client, PrivateKey } from '@hashgraph/sdk';
 import prompts from 'prompts';
 import * as dotenv from 'dotenv';
@@ -17,10 +17,17 @@ async function bootstrap(): Promise<void> {
   // Core Hedera tools
   const {
     CREATE_FUNGIBLE_TOKEN_TOOL,
+  } = coreHTSPluginToolNames;
+
+  const {
     CREATE_TOPIC_TOOL,
     SUBMIT_TOPIC_MESSAGE_TOOL,
+  } = coreConsensusPluginToolNames;
+
+  const {
     GET_HBAR_BALANCE_QUERY_TOOL,
-  } = hederaTools;
+  } = coreQueriesPluginToolNames;
+
 
   // Prepare Hedera toolkit with core tools AND custom plugin
   const hederaAgentToolkit = new HederaAIToolkit({
@@ -36,7 +43,7 @@ async function bootstrap(): Promise<void> {
         'example_greeting_tool',
         'example_hbar_transfer_tool',
       ],
-      plugins: [examplePlugin], // Add the example plugin
+      plugins: [coreHTSPlugin, coreConsensusPlugin, coreQueriesPlugin, examplePlugin], // Add the example plugin
       context: {
         mode: AgentMode.AUTONOMOUS,
       },

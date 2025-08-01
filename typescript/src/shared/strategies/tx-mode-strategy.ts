@@ -1,8 +1,16 @@
-import { AccountId, Client, Transaction, TransactionId } from '@hashgraph/sdk';
+import { AccountId, Client, TokenId, TopicId, Transaction, TransactionId } from '@hashgraph/sdk';
 import { AgentMode, Context } from '@/shared/configuration';
 
 interface TxModeStrategy {
   handle<T extends Transaction>(tx: T, client: Client, context: Context): Promise<unknown>;
+}
+
+export interface ExecuteStrategyResult {
+  status: number;
+  accountId: AccountId;
+  tokenId: TokenId;
+  transactionId: string;
+  topicId: TopicId;
 }
 
 class ExecuteStrategy implements TxModeStrategy {
@@ -13,11 +21,11 @@ class ExecuteStrategy implements TxModeStrategy {
       status: receipt.status._code,
       accountId: receipt.accountId,
       tokenId: receipt.tokenId,
-      transactionId: tx.transactionId,
+      transactionId: tx.transactionId?.toString(),
       topicId: receipt.topicId,
       contractId: receipt.contractId,
       receipt: receipt,
-    };
+    } as ExecuteStrategyResult;
   }
 }
 

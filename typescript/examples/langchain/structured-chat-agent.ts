@@ -1,4 +1,4 @@
-import { HederaLangchainToolkit, AgentMode, coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin, coreHTSPluginToolNames, coreQueriesPluginToolNames, coreConsensusPluginToolNames, coreAccountPluginToolNames } from 'hedera-agent-kit';
+import { HederaLangchainToolkit, AgentMode, coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin, coreHTSPluginToolNames, coreQueriesPluginToolNames, coreConsensusPluginToolNames, coreAccountPluginToolNames, coreSCSPluginToolNames, coreSCSPlugin } from 'hedera-agent-kit';
 import { ChatOpenAI } from '@langchain/openai';
 import type { ChatPromptTemplate } from '@langchain/core/prompts';
 import { pull } from 'langchain/hub';
@@ -46,6 +46,10 @@ async function bootstrap(): Promise<void> {
     GET_TOPIC_MESSAGES_QUERY_TOOL,
   } = coreQueriesPluginToolNames;
 
+  const {
+    CREATE_ERC20_TOOL,
+  } = coreSCSPluginToolNames;
+
   // Prepare Hedera toolkit (load all tools by default)
   const hederaAgentToolkit = new HederaLangchainToolkit({
     client,
@@ -63,11 +67,12 @@ async function bootstrap(): Promise<void> {
         GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
         GET_TOPIC_MESSAGES_QUERY_TOOL,
         MINT_FUNGIBLE_TOKEN_TOOL,
+        CREATE_ERC20_TOOL,
       ], // use an empty array if you want to load all tools
       context: {
         mode: AgentMode.AUTONOMOUS,
       },
-      plugins: [coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin],
+      plugins: [coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin, coreSCSPlugin],
     },
   });
 

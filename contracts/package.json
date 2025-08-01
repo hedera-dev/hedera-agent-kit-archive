@@ -1,0 +1,17 @@
+{
+  "name": "hedera-agent-kit-contracts",
+  "scripts": {
+    "deploy:mainnet": "hardhat ignition deploy ignition/modules/deploy-factory.ts --network hederaMainnet",
+    "deploy:testnet": "hardhat ignition deploy ignition/modules/deploy-factory.ts --network hederaTestnet",
+    "deploy:previewnet": "hardhat ignition deploy ignition/modules/deploy-factory.ts --network hederaPreviewnet",
+    "deploy:all": "npm run deploy:mainnet & npm run deploy:testnet & npm run deploy:previewnet & wait"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dotenv": "^16.6.1",
+    "hardhat": "^2.26.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  }
+}

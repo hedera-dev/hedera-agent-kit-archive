@@ -26,6 +26,8 @@ import { toBaseUnit } from '@/shared/hedera-utils/decimals-utils';
 import Long from 'long';
 import { TokenTransferMinimalParams, TransferHbarInput } from '@/shared/hedera-utils/types';
 import { AccountResolver } from '@/shared/utils/account-resolver';
+import { createERC20Parameters } from '../parameter-schemas/erc20.zod';
+import { ethers } from 'ethers';
 
 export default class HederaParameterNormaliser {
   static async normaliseCreateFungibleTokenParams(
@@ -245,6 +247,33 @@ export default class HederaParameterNormaliser {
     return {
       ...params,
       accountId,
+    };
+  }
+
+  static normaliseCreateERC20Params(
+    params: z.infer<ReturnType<typeof createERC20Parameters>>,
+    factoryContractId: string,
+    factoryContractAbi: string[],
+    factoryContractFunctionName: string,
+  ) {
+    // Create interface for encoding
+    const iface = new ethers.Interface(factoryContractAbi);
+
+    // Encode the function call
+    const encodedData = iface.encodeFunctionData(factoryContractFunctionName, [
+      params.tokenName,
+      params.tokenSymbol,
+      params.decimals,
+      params.initialSupply,
+    ]);
+
+    const functionParameters = ethers.getBytes(encodedData);
+
+    return {
+      ...params,
+      contractId: factoryContractId,
+      functionParameters,
+      gas: 3000000, //TODO: make this configurable
     };
   }
 

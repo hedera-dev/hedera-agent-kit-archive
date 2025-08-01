@@ -2,7 +2,7 @@ import { coreHTSPlugin, coreHTSPluginToolNames } from './core-hts-plugin';
 import { coreAccountPlugin, coreAccountPluginToolNames } from './core-account-plugin';
 import { coreConsensusPlugin, coreConsensusPluginToolNames } from './core-consensus-plugin';
 import { coreQueriesPlugin, coreQueriesPluginToolNames } from './core-queries-plugin';
-
+import { coreSCSPlugin, coreSCSPluginToolNames } from './core-scs-plugin';
 export {
   coreHTSPlugin,
   coreAccountPlugin,
@@ -12,4 +12,6 @@ export {
   coreAccountPluginToolNames,
   coreConsensusPluginToolNames,
   coreQueriesPluginToolNames,
+  coreSCSPlugin,
+  coreSCSPluginToolNames,
 };
