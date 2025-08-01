@@ -14,6 +14,10 @@ import {
   createTopicParameters,
   createTopicParametersNormalised,
 } from '@/shared/parameter-schemas/hcs.zod';
+import {
+  transferERC721Parameters
+} from '@/shared/parameter-schemas/erc721.zod';
+
 import { Client, Hbar, PublicKey, TokenSupplyType, TokenType } from '@hashgraph/sdk';
 import { Context } from '@/shared/configuration';
 import z from 'zod';
@@ -271,6 +275,16 @@ export default class HederaParameterNormaliser {
     return {
       ...params,
       metadata: metadata,
+    };
+  }
+
+  static normaliseTransferERC721Params(
+    params: z.infer<ReturnType<typeof transferERC721Parameters>>,
+    _context: Context,
+  ) {
+    return {
+      ...params,
+      gas: 10_000_000,
     };
   }
 }

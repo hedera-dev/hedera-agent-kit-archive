@@ -5,6 +5,8 @@ import {
   TopicMessageSubmitTransaction,
   TransferTransaction,
   TokenMintTransaction,
+  ContractExecuteTransaction,
+  ContractFunctionParameters,
 } from '@hashgraph/sdk';
 import {
   airdropFungibleTokenParametersNormalised,
@@ -19,6 +21,10 @@ import {
   createTopicParametersNormalised,
   submitTopicMessageParametersNormalised,
 } from '@/shared/parameter-schemas/hcs.zod';
+import {
+  transferERC721ParametersNormalised
+} from '@/shared/parameter-schemas/erc721.zod';
+
 
 export default class HederaBuilder {
   static createFungibleToken(
@@ -63,5 +69,17 @@ export default class HederaBuilder {
     params: z.infer<ReturnType<typeof mintNonFungibleTokenParametersNormalised>>,
   ) {
     return new TokenMintTransaction(params);
+  }
+
+  static transferERC721(
+    params: z.infer<ReturnType<typeof transferERC721ParametersNormalised>>,
+  ) {
+    return new ContractExecuteTransaction()
+      .setContractId(params.contractId)
+      .setGas(params.gas)
+      .setFunction("transferFrom", new ContractFunctionParameters()
+        .addAddress(params.fromAddress)
+        .addAddress(params.toAddress)
+        .addUint256(params.tokenId));
   }
 }
