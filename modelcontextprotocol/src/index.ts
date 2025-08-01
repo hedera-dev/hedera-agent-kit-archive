@@ -5,7 +5,7 @@ import colors from 'colors';
 const { green, red, yellow } = colors;
 
 import { LedgerId, Client } from '@hashgraph/sdk';
-import { AgentMode, ALL_TOOLS, Configuration, Context, HederaMCPToolkit } from 'hedera-agent-kit';
+import { AgentMode, Configuration, Context, coreAccountPlugin, coreAccountPluginToolNames, coreConsensusPlugin, coreConsensusPluginToolNames, coreHTSPlugin, coreHTSPluginToolNames, coreQueriesPlugin, coreQueriesPluginToolNames, HederaMCPToolkit } from 'hedera-agent-kit';
 
 type Options = {
   tools?: string[];
@@ -13,8 +13,44 @@ type Options = {
   ledgerId?: LedgerId;
 };
 
+  // all the available tools
+  const {
+    CREATE_FUNGIBLE_TOKEN_TOOL,
+    CREATE_NON_FUNGIBLE_TOKEN_TOOL,
+    AIRDROP_FUNGIBLE_TOKEN_TOOL,
+    MINT_NON_FUNGIBLE_TOKEN_TOOL,
+  } = coreHTSPluginToolNames;
+
+  const {
+    TRANSFER_HBAR_TOOL,
+  } = coreAccountPluginToolNames;
+
+  const {
+    CREATE_TOPIC_TOOL,
+    SUBMIT_TOPIC_MESSAGE_TOOL,
+  } = coreConsensusPluginToolNames;
+
+  const {
+    GET_HBAR_BALANCE_QUERY_TOOL,
+    GET_ACCOUNT_QUERY_TOOL,
+    GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
+    GET_TOPIC_MESSAGES_QUERY_TOOL,
+  } = coreQueriesPluginToolNames;
+
 const ACCEPTED_ARGS = ['agent-mode', 'account-id', 'public-key', 'tools', 'ledger-id'];
-const ACCEPTED_TOOLS = ALL_TOOLS;
+const ACCEPTED_TOOLS = [
+  CREATE_FUNGIBLE_TOKEN_TOOL,
+  CREATE_NON_FUNGIBLE_TOKEN_TOOL,
+  AIRDROP_FUNGIBLE_TOKEN_TOOL,
+  MINT_NON_FUNGIBLE_TOKEN_TOOL,
+  TRANSFER_HBAR_TOOL,
+  CREATE_TOPIC_TOOL,
+  SUBMIT_TOPIC_MESSAGE_TOOL,
+  GET_HBAR_BALANCE_QUERY_TOOL,
+  GET_ACCOUNT_QUERY_TOOL,
+  GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
+  GET_TOPIC_MESSAGES_QUERY_TOOL,
+];
 
 export function parseArgs(args: string[]): Options {
   const options: Options = {
@@ -59,7 +95,7 @@ export function parseArgs(args: string[]): Options {
     if (tool == 'all') {
       return;
     }
-    if (!ACCEPTED_TOOLS.includes(tool.trim())) {
+    if (!ACCEPTED_TOOLS.includes(tool.trim() as any)) {
       throw new Error(
         `Invalid tool: ${tool}. Accepted tools are: ${ACCEPTED_TOOLS.join(
           ', '
@@ -104,6 +140,7 @@ export async function main() {
   const configuration: Configuration = {
     tools: options.tools,
     context: options.context,
+    plugins: [coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin],
   }
 
   const server = new HederaMCPToolkit({

@@ -103,6 +103,5 @@ export const mintNonFungibleTokenParameters = (_context: Context = {}) =>
     uris: z.array(z.string().max(100)).max(10).describe('An array of URIs hosting NFT metadata.'),
   });
 
-export const mintNonFungibleTokenParametersNormalised = (_context: Context = {}) => 
+export const mintNonFungibleTokenParametersNormalised = (_context: Context = {}) =>
   mintNonFungibleTokenParameters(_context).extend({});
-

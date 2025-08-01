@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@hashgraph/sdk';
 import { Configuration } from '@/shared/configuration';
 import HederaAgentKitAPI from '@/shared/api';
-import tools from '@/shared/tools';
+import { ToolDiscovery } from '@/shared/tool-discovery';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 
 class HederaMCPToolkit extends McpServer {
@@ -20,15 +20,13 @@ class HederaMCPToolkit extends McpServer {
         },
       },
     });
-    this._hederaAgentKit = new HederaAgentKitAPI(client, configuration.context);
 
     const context = configuration.context || {};
-    const filteredTools =
-      !configuration.tools || configuration.tools.length === 0
-        ? tools(context)
-        : tools(context).filter(tool => (configuration.tools ?? []).includes(tool.method));
+    const toolDiscovery = ToolDiscovery.createFromConfiguration(configuration);
+    const allTools = toolDiscovery.getAllTools(context, configuration);
+    this._hederaAgentKit = new HederaAgentKitAPI(client, configuration.context, allTools);
 
-    filteredTools.map(tool => {
+    allTools.map(tool => {
       this.tool(
         tool.method,
         tool.description,

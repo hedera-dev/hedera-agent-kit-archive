@@ -1,6 +1,6 @@
 import HederaAgentAPI from '../shared/api';
-import tools from '../shared/tools';
 import { type Configuration } from '../shared/configuration';
+import { ToolDiscovery } from '../shared/tool-discovery';
 import type { Tool, LanguageModelV1Middleware } from 'ai';
 import { Client } from '@hashgraph/sdk';
 import HederaAgentKitTool from './tool';
@@ -11,18 +11,13 @@ class HederaAIToolkit {
   tools: { [key: string]: Tool };
 
   constructor({ client, configuration }: { client: Client; configuration: Configuration }) {
-    this._hedera = new HederaAgentAPI(client, configuration.context);
+    const context = configuration.context || {};
+    const toolDiscovery = ToolDiscovery.createFromConfiguration(configuration);
+    const allTools = toolDiscovery.getAllTools(context, configuration);
+    this._hedera = new HederaAgentAPI(client, configuration.context, allTools);
     this.tools = {};
 
-    const context = configuration.context || {};
-    const filteredTools =
-      // if no tools are provided, use all tools
-      !configuration.tools || configuration.tools.length === 0
-        ? tools(context)
-        : // else use only the tools provided
-          tools(context).filter(tool => (configuration.tools ?? []).includes(tool.method));
-
-    filteredTools.forEach(tool => {
+    allTools.forEach(tool => {
       this.tools[tool.method] = HederaAgentKitTool(
         this._hedera,
         tool.method,

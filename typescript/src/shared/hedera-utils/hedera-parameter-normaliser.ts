@@ -256,14 +256,15 @@ export default class HederaParameterNormaliser {
     context: Context,
     mirrorNode: IHederaMirrornodeService,
   ) {
-    const decimals = (await mirrorNode.getTokenDetails(params.tokenId).then(r => Number(r.decimals))) ?? 0;
+    const decimals =
+      (await mirrorNode.getTokenDetails(params.tokenId).then(r => Number(r.decimals))) ?? 0;
     const baseAmount = toBaseUnit(params.amount, decimals);
     return {
       tokenId: params.tokenId,
-      amount:  baseAmount,
+      amount: baseAmount,
     };
   }
-  
+
   static normaliseMintNonFungibleTokenParams(
     params: z.infer<ReturnType<typeof mintNonFungibleTokenParameters>>,
     _context: Context,

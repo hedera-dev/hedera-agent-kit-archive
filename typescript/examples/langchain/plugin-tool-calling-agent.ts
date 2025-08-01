@@ -1,13 +1,13 @@
-import { HederaLangchainToolkit, AgentMode, coreHTSPluginToolNames, coreAccountPluginToolNames, coreConsensusPluginToolNames, coreQueriesPluginToolNames } from 'hedera-agent-kit';
+import { HederaLangchainToolkit, AgentMode, coreHTSPluginToolNames, coreConsensusPluginToolNames, coreQueriesPluginToolNames, coreQueriesPlugin, coreHTSPlugin, coreConsensusPlugin } from 'hedera-agent-kit';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { BufferMemory } from 'langchain/memory';
-import { Client, PrivateKey, Transaction } from '@hashgraph/sdk';
+import { Client, PrivateKey } from '@hashgraph/sdk';
 import prompts from 'prompts';
 import * as dotenv from 'dotenv';
+import { examplePlugin } from '../plugin/example-plugin';
 dotenv.config();
-
 
 async function bootstrap(): Promise<void> {
   // Initialise OpenAI LLM
@@ -15,25 +15,16 @@ async function bootstrap(): Promise<void> {
     model: 'gpt-4o-mini',
   });
 
-  const operatorAccountId = process.env.ACCOUNT_ID!;
-  const operatorPrivateKey = PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY!);
-
   // Hedera client setup (Testnet by default)
-  const humanInTheLoopClient = Client.forTestnet().setOperator(
-    operatorAccountId,
-    operatorPrivateKey,
+  const client = Client.forTestnet().setOperator(
+    process.env.ACCOUNT_ID!,
+    PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY!),
   );
-
-  const agentClient = Client.forTestnet();
 
   // all the available tools
   const {
     CREATE_FUNGIBLE_TOKEN_TOOL,
   } = coreHTSPluginToolNames;
-
-  const {
-    TRANSFER_HBAR_TOOL,
-  } = coreAccountPluginToolNames;
 
   const {
     CREATE_TOPIC_TOOL,
@@ -44,34 +35,37 @@ async function bootstrap(): Promise<void> {
     GET_HBAR_BALANCE_QUERY_TOOL,
   } = coreQueriesPluginToolNames;
 
-  // Prepare Hedera toolkit (load all tools by default)
+
+  // Prepare Hedera toolkit with core tools AND custom plugin
   const hederaAgentToolkit = new HederaLangchainToolkit({
-    client: agentClient,
+    client,
     configuration: {
       tools: [
+        // Core tools
         CREATE_TOPIC_TOOL,
         SUBMIT_TOPIC_MESSAGE_TOOL,
         CREATE_FUNGIBLE_TOKEN_TOOL,
         GET_HBAR_BALANCE_QUERY_TOOL,
-        TRANSFER_HBAR_TOOL,
-      ], // use an empty array if you wantto load all tools
+        // Plugin tools
+        'example_greeting_tool',
+        'example_hbar_transfer_tool',
+      ],
+      plugins: [examplePlugin, coreHTSPlugin, coreConsensusPlugin, coreQueriesPlugin], // Add the example plugin
       context: {
-        mode: AgentMode.RETURN_BYTES,
-        accountId: operatorAccountId,
+        mode: AgentMode.AUTONOMOUS,
       },
     },
   });
 
   // Load the structured chat prompt template
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', 'You are a helpful assistant'],
+    ['system', 'You are a helpful assistant with access to Hedera blockchain tools and custom plugin tools'],
     ['placeholder', '{chat_history}'],
     ['human', '{input}'],
     ['placeholder', '{agent_scratchpad}'],
   ]);
 
   // Fetch tools from toolkit
-  // cast to any to avoid excessively deep type instantiation caused by zod@3.25
   const tools = hederaAgentToolkit.getTools();
 
   // Create the underlying agent
@@ -94,10 +88,14 @@ async function bootstrap(): Promise<void> {
     agent,
     tools,
     memory,
-    returnIntermediateSteps: true,
+    returnIntermediateSteps: false,
   });
 
-  console.log('Hedera Agent CLI Chatbot — type "exit" to quit');
+  console.log('Hedera Agent CLI Chatbot with Plugin Support — type "exit" to quit');
+  console.log('Available plugin tools:');
+  console.log('- example_greeting_tool: Generate personalized greetings');
+  console.log('- example_hbar_transfer_tool: Transfer HBAR to account 0.0.800 (demonstrates transaction strategy)');
+  console.log('');
 
   while (true) {
     const { userInput } = await prompts({
@@ -115,17 +113,6 @@ async function bootstrap(): Promise<void> {
     try {
       const response = await agentExecutor.invoke({ input: userInput });
       console.log(`AI: ${response?.output ?? response}`);
-      const bytes = extractBytesFromAgentResponse(response);
-      if (bytes !== undefined) {
-        const realBytes = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes.data);
-        const tx = Transaction.fromBytes(realBytes);
-        const result = await tx.execute(humanInTheLoopClient);
-        const receipt = await result.getReceipt(humanInTheLoopClient);
-        console.log('Transaction receipt:', receipt.status.toString());
-        console.log('Transaction result:', result.transactionId.toString());
-      } else {
-        console.log('No transaction bytes found in the response.');
-      }
     } catch (err) {
       console.error('Error:', err);
     }
@@ -138,22 +125,3 @@ bootstrap().catch(err => {
 }).then(() => {
   process.exit(0);
 });
-
-function extractBytesFromAgentResponse(response: any): any {
-  if (
-    response.intermediateSteps &&
-    response.intermediateSteps.length > 0 &&
-    response.intermediateSteps[0].observation
-  ) {
-    const obs = response.intermediateSteps[0].observation;
-    try {
-      const obsObj = typeof obs === 'string' ? JSON.parse(obs) : obs;
-      if (obsObj.bytes) {
-        return obsObj.bytes;
-      }
-    } catch (e) {
-      console.error('Error parsing observation:', e);
-    }
-  }
-  return undefined;
-}

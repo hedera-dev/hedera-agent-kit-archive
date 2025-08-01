@@ -92,7 +92,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { Client, PrivateKey } from '@hashgraph/sdk';
-import { HederaLangchainToolkit } from 'hedera-agent-kit';
+import { HederaLangchainToolkit, coreQueriesPlugin } from 'hedera-agent-kit';
 
 
 async function main() {
@@ -110,7 +110,7 @@ async function main() {
   const hederaAgentToolkit = new HederaLangchainToolkit({
     client,
     configuration: {
-      tools: [] // use an empty array if you want to load all tools
+      plugins: [coreQueriesPlugin] // all our core plugins here https://github.com/hedera-dev/hedera-agent-kit/tree/main/typescript/src/plugins
     },
   });
   

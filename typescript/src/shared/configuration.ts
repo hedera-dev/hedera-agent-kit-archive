@@ -1,4 +1,5 @@
 import { IHederaMirrornodeService } from './hedera-utils/mirrornode/hedera-mirrornode-service.interface';
+import { Plugin } from './plugin';
 
 export enum AgentMode {
   AUTONOMOUS = 'autonomous',
@@ -23,5 +24,7 @@ export type Context = {
 export type Configuration = {
   //if empty, all tools will be used.
   tools?: string[];
+  //external plugins to load
+  plugins?: Plugin[];
   context?: Context;
 };

@@ -1,4 +1,4 @@
-import { HederaLangchainToolkit, AgentMode, hederaTools } from 'hedera-agent-kit';
+import { HederaLangchainToolkit, AgentMode, coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin } from 'hedera-agent-kit';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
@@ -22,32 +22,40 @@ async function bootstrap(): Promise<void> {
   );
 
   // all the available tools
-  const {
-    CREATE_FUNGIBLE_TOKEN_TOOL,
-    CREATE_TOPIC_TOOL,
-    SUBMIT_TOPIC_MESSAGE_TOOL,
-    GET_HBAR_BALANCE_QUERY_TOOL,
-    // CREATE_NON_FUNGIBLE_TOKEN_TOOL,
-    // TRANSFER_HBAR_TOOL,
-    // AIRDROP_FUNGIBLE_TOKEN_TOOL,
-    // GET_ACCOUNT_QUERY_TOOL,
-    // GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
-    // GET_TOPIC_MESSAGES_QUERY_TOOL,
-  } = hederaTools;
+  // const {
+  //   CREATE_FUNGIBLE_TOKEN_TOOL,
+  //   CREATE_NON_FUNGIBLE_TOKEN_TOOL,
+  //   AIRDROP_FUNGIBLE_TOKEN_TOOL,
+  //   MINT_FUNGIBLE_TOKEN_TOOL,
+  //   MINT_NON_FUNGIBLE_TOKEN_TOOL,
+  // } = coreHTSPluginToolNames;
+
+  // const {
+  //   TRANSFER_HBAR_TOOL,
+  // } = coreAccountPluginToolNames;
+
+  // const {
+  //   CREATE_TOPIC_TOOL,
+  //   SUBMIT_TOPIC_MESSAGE_TOOL,
+  // } = coreConsensusPluginToolNames;
+
+  // const {
+  //   GET_HBAR_BALANCE_QUERY_TOOL,
+  //   GET_ACCOUNT_QUERY_TOOL,
+  //   GET_ACCOUNT_TOKEN_BALANCES_QUERY_TOOL,
+  //   GET_TOPIC_MESSAGES_QUERY_TOOL,
+  // } = coreQueriesPluginToolNames;
 
   // Prepare Hedera toolkit (load all tools by default)
   const hederaAgentToolkit = new HederaLangchainToolkit({
     client,
     configuration: {
       tools: [
-        CREATE_TOPIC_TOOL,
-        SUBMIT_TOPIC_MESSAGE_TOOL,
-        CREATE_FUNGIBLE_TOKEN_TOOL,
-        GET_HBAR_BALANCE_QUERY_TOOL,
-      ], // use an empty array if you wantto load all tools
+      ], // use an empty array if you want to load all tools
       context: {
         mode: AgentMode.AUTONOMOUS,
       },
+      plugins: [coreHTSPlugin, coreAccountPlugin, coreConsensusPlugin, coreQueriesPlugin],
     },
   });
 
